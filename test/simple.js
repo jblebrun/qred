@@ -141,7 +141,39 @@ var tests = [
             assert(result == JSON.stringify(data));
             done();
         });
+    },
+
+    function attachToJob(done) {
+        var handlerruns = 0;
+        var q = new Qred(client, sclient, {
+            log: console.log.bind(console),
+            name: "delaytest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                handlerruns++;
+                callback(null, JSON.stringify(data));
+            }
+        });
+        var data = {info:"attach"};
+        var callbacks = 0;
+        q.pause();
+        q.submitJob("ajobid", data, { }, function(err, result) {
+            assert(!err, err);
+            assert(handlerruns === 1);
+            assert(result == JSON.stringify(data));
+            callbacks++;
+            if(callbacks >= 2) done();
+        });
+        q.submitJob("ajobid", data, { }, function(err, result) {
+            assert(!err, err);
+            assert(handlerruns === 1);
+            assert(result == JSON.stringify(data));
+            callbacks++;
+            if(callbacks >= 2) done();
+        });
+        q.unpause();
     }
+
 
 ];
 
