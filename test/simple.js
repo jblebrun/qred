@@ -1,6 +1,11 @@
 var assert = require("assert");
 var Qred = require("../lib/qred").Qred;
-var redis = require("redis");
+try {
+    var redis = require("redis");
+} catch(err) {
+    console.log("npm install redis to run tests");
+    process.exit(-1);
+}
 
 var client = redis.createClient(6480);
 var sclient = redis.createClient(6480);
