@@ -180,16 +180,34 @@ var tests = [
 
 //Run in domain to catch asserts
 function runNextTest() {
+    var domain = require('domain').create();
+    domain.add(client);
+    domain.add(sclient);
     var test = tests.shift();
     if(!test) {
         console.log("Finished tests");
         process.exit(0);
     }
-    console.log("Starting test "+test.name);
-    test(function() {
-        console.log("Test \""+test.name+"\" passed");
+    console.log("--- Starting test "+test.name);
+    domain.on('error', function(err) {
+        console.log("*** Test "+test.name+" failed");
+        console.log(err.message);
+        console.log(err.stack);
         runNextTest();
+    });
+    domain.run(function() {
+        test(function() {
+            console.log("    Test \""+test.name+"\" passed");
+            process.nextTick(runNextTest);
+        });
     });
 }
 
+var d = require('domain').create();
+d.on('error', function(err) {
+    console.log(err);
+    console.log("We cool.");
+    d.dispose();
+    runNextTest();
+});
 runNextTest();
