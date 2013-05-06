@@ -24,14 +24,16 @@ var tests = [
     {
         test: function singleJob(done) {
             var params = {
+                redis: client,
+                subscriber: sclient,
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
                     callback(null, JSON.stringify(data));
                 }
             };
-            var q = new Qred.Manager(client, sclient, params);
-            new Qred.Processor(client, sclient, params);
+            var q = new Qred.Manager(params);
+            new Qred.Processor(params);
 
             var data = { data1: "a", data2: "b" };
             q.submitJob("ajobid", data , {}, function(err, result) {
@@ -44,6 +46,8 @@ var tests = [
     },
     function priorityJobs(done) {
         var params = {
+            redis: client,
+            subscriber: sclient,
             log: console.log.bind(console),
             name: "priotest",
             conurrency: 1,
@@ -53,8 +57,8 @@ var tests = [
                 }, 500);
             }
         };
-        var q = new Qred.Manager(client, sclient, params);
-        var qp = new Qred.Processor(client, sclient, params);
+        var q = new Qred.Manager(params);
+        var qp = new Qred.Processor(params);
 
         var adone = false;
         var bdone = false;
@@ -92,6 +96,8 @@ var tests = [
         var started = {};
         var fin = {};
         var params = {
+            redis: client,
+            subscriber: sclient,
             log: console.log.bind(console),
             name: "concurrencytest",
             conurrency: 2,
@@ -105,8 +111,8 @@ var tests = [
                 }, 500);
             }
         };
-        var q = new Qred.Manager(client, sclient, params);
-        var qp = new Qred.Processor(client, sclient, params);
+        var q = new Qred.Manager(params);
+        var qp = new Qred.Processor(params);
         qp.pause();
         var adata = {info:"A"};
         q.submitJob("ajobid", adata, { priority: 1 }, function(err, result) {
@@ -147,6 +153,8 @@ var tests = [
     },
     function delayJobs(done) {
         var params = {
+            redis: client,
+            subscriber: sclient,
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -154,8 +162,8 @@ var tests = [
                 callback(null, JSON.stringify(data));
             }
         };
-        var q = new Qred.Manager(client, sclient, params);
-        new Qred.Processor(client, sclient, params);
+        var q = new Qred.Manager(params);
+        new Qred.Processor(params);
 
         var start = Date.now();
         var data = {info:"delay"};
@@ -169,6 +177,8 @@ var tests = [
     function attachToJob(done) {
         var handlerruns = 0;
         var params =  {
+            redis: client,
+            subscriber: sclient,
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -177,8 +187,8 @@ var tests = [
                 callback(null, JSON.stringify(data));
             }
         };
-        var q = new Qred.Manager(client, sclient, params);
-        var qp = new Qred.Processor(client, sclient, params);
+        var q = new Qred.Manager(params);
+        var qp = new Qred.Processor(params);
         var data = {info:"attach"};
         var callbacks = 0;
         qp.pause();
