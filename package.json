@@ -1,0 +1,31 @@
+{
+  "name": "qred",
+  "version": "0.1.0",
+  "description": "A Redis-backed queue that doesn't suck",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "redis": "~0.8.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node test/simple.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/incredible-labs/qred.git"
+  },
+  "keywords": [
+    "redis",
+    "queue",
+    "kue",
+    "process",
+    "jobs"
+  ],
+  "author": "Jason LeBrun <jbl@incredible.io>",
+  "license": "BSD",
+  "gitHead": "39c10bf48f1f3ae1afcd952768e513279ac9de2f",
+  "readmeFilename": "README.md"
+}

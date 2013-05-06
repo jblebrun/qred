@@ -7,8 +7,14 @@ try {
     console.log("npm install redis to run tests");
     process.exit(-1);
 }
+
+try {
 var client = redis.createClient(6480);
 var sclient = redis.createClient(6480);
+} catch(err) {
+    console.log("Run a redis server on port 6480");
+    process.exit(-1);
+}
 
 var default_timeout = 5000;
 
