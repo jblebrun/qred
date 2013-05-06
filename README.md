@@ -14,12 +14,11 @@ It will be important to remember to use the same parameter values when instantia
 
 There are two interfaces into the queue: Processor, and Manager. A Processor receives messages about new job submissions, and pulls jobs from the queue to handle them. The Manager is an interface to submit jobs to the queue and query it.
 
-Queue Manager
-=============
+# Queue Manager
 
 ```
 new qred.Manager(opts)
-````
+```
 Create a queue manager object that can be used to submit jobs to the queue.
 Required Options:
 * name - A string identifying the queue
@@ -29,6 +28,7 @@ Required Options:
 Optional Options:
 * log - a function that will be used to log debug messages
 
+```
 qred.submitJob(jobid, data, opts, callback)
 ```
 * jobid - a string that uniquely identifies a job. If a job with the specified id exists, it will be *replaced*.
@@ -46,8 +46,8 @@ qred.removeJob(jobid, callback)
 ```
 Remove a job from the queue. Active jobs will not be cancelled, but local callbacks for the job ID will not be fired. Remote callbacks currently *will* still execute, although this may change in the future
 
-Internal Methods
-----------------
+
+## Internal Methods
 
 ```
 _handleMessage(channel, message)
@@ -60,8 +60,7 @@ _handleCompletion(jobid, err, result)
 Handle a message that a job processor on this queue has finished processing a job. All local callbacks for the job id will be executed with the specified err, result values, and then removed from the local callback cache.
 
 
-Queue Processor
-===============
+# Queue Processor
 
 ```
 new qred.Processor(opts)
@@ -90,8 +89,7 @@ qred.unpause()
 Start listening for and processing jobs again 
 
 
-Internal Methods
-----------------
+## Internal Methods
 ```
 _process()
 ```
