@@ -1,14 +1,15 @@
 var assert = require("assert");
 var Qred = require("../lib/qred").Qred;
+var Domain = require("domain");
 try {
     var redis = require("redis");
 } catch(err) {
     console.log("npm install redis to run tests");
     process.exit(-1);
 }
-
 var client = redis.createClient(6480);
 var sclient = redis.createClient(6480);
+
 var tests = [ 
     function singleJob(done) {
         var q = new Qred(client, sclient, {
@@ -142,7 +143,6 @@ var tests = [
             done();
         });
     },
-
     function attachToJob(done) {
         var handlerruns = 0;
         var q = new Qred(client, sclient, {
@@ -180,22 +180,22 @@ var tests = [
 
 //Run in domain to catch asserts
 function runNextTest() {
-    var domain = require('domain').create();
-    domain.add(client);
-    domain.add(sclient);
+    var tdomain = Domain.create();
+    tdomain.add(client);
+    tdomain.add(sclient);
     var test = tests.shift();
     if(!test) {
         console.log("Finished tests");
         process.exit(0);
     }
     console.log("--- Starting test "+test.name);
-    domain.on('error', function(err) {
+    tdomain.on('error', function(err) {
         console.log("*** Test "+test.name+" failed");
         console.log(err.message);
         console.log(err.stack);
         runNextTest();
     });
-    domain.run(function() {
+    tdomain.run(function() {
         test(function() {
             console.log("    Test \""+test.name+"\" passed");
             process.nextTick(runNextTest);
@@ -203,11 +203,4 @@ function runNextTest() {
     });
 }
 
-var d = require('domain').create();
-d.on('error', function(err) {
-    console.log(err);
-    console.log("We cool.");
-    d.dispose();
-    runNextTest();
-});
 runNextTest();
