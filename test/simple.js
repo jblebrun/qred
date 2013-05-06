@@ -10,22 +10,26 @@ try {
 var client = redis.createClient(6480);
 var sclient = redis.createClient(6480);
 
-var tests = [ 
-    function singleJob(done) {
-        var q = new Qred(client, sclient, {
-            log: console.log.bind(console),
-            name: "simpletest",
-            handler: function(data, callback) {
-                callback(null, JSON.stringify(data));
-            }
-        });
-        var data = { data1: "a", data2: "b" };
-        q.submitJob("ajobid", data , {}, function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data));
-            done();
-        });
+var default_timeout = 5000;
 
+var tests = [ 
+    {
+        test: function singleJob(done) {
+            var q = new Qred(client, sclient, {
+                log: console.log.bind(console),
+                name: "simpletest",
+                handler: function(data, callback) {
+                    callback(null, JSON.stringify(data));
+                }
+            });
+            var data = { data1: "a", data2: "b" };
+            q.submitJob("ajobid", data , {}, function(err, result) {
+                assert(!err, err);
+                assert(result == JSON.stringify(data));
+                done();
+            });
+        },
+        timeout: 2000
     },
     function priorityJobs(done) {
         var q = new Qred(client, sclient, {
@@ -188,7 +192,6 @@ function runNextTest() {
         console.log("Finished tests");
         process.exit(0);
     }
-    console.log("--- Starting test "+test.name);
     tdomain.on('error', function(err) {
         console.log("*** Test "+test.name+" failed");
         console.log(err.message);
@@ -196,10 +199,29 @@ function runNextTest() {
         runNextTest();
     });
     tdomain.run(function() {
+        var timeout = default_timeout;
+        if(test instanceof Function) {
+            test = test; 
+        } else if (test instanceof Object && test.hasOwnProperty('test')) {
+            if(test.hasOwnProperty("timeout")) {
+                timeout = test.timeout; 
+            }
+            test = test.test;
+        } else {
+            assert('Test entries should be functions, or objects with a field called "test" that is a function');
+        }
+        console.log("--- Starting test "+test.name+(timeout?" (Times out in "+timeout+")":""));
+
+        var timeout_id;
         test(function() {
+            clearTimeout(timeout_id);
             console.log("    Test \""+test.name+"\" passed");
             process.nextTick(runNextTest);
         });
+        timeout_id = setTimeout(function() {
+            assert(false, test.name+" timed out!");
+        }, timeout);
+        tdomain.add(timeout_id);
     });
 }
 
