@@ -1,6 +1,8 @@
 var assert = require("assert");
-var Qred = require("../lib/qred").Qred;
 var Domain = require("domain");
+
+var Qred = require("../index");
+
 try {
     var redis = require("redis");
 } catch(err) {
@@ -21,13 +23,16 @@ var default_timeout = 5000;
 var tests = [ 
     {
         test: function singleJob(done) {
-            var q = new Qred(client, sclient, {
+            var params = {
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
                     callback(null, JSON.stringify(data));
                 }
-            });
+            };
+            var q = new Qred.Manager(client, sclient, params);
+            new Qred.Processor(client, sclient, params);
+
             var data = { data1: "a", data2: "b" };
             q.submitJob("ajobid", data , {}, function(err, result) {
                 assert(!err, err);
@@ -38,7 +43,7 @@ var tests = [
         timeout: 2000
     },
     function priorityJobs(done) {
-        var q = new Qred(client, sclient, {
+        var params = {
             log: console.log.bind(console),
             name: "priotest",
             conurrency: 1,
@@ -47,11 +52,14 @@ var tests = [
                     callback(null, JSON.stringify(data));
                 }, 500);
             }
-        });
+        };
+        var q = new Qred.Manager(client, sclient, params);
+        var qp = new Qred.Processor(client, sclient, params);
+
         var adone = false;
         var bdone = false;
         var cdone = false;
-        q.pause();
+        qp.pause();
         var adata = {info:"A"};
         q.submitJob("ajobid", adata, { priority: 1 }, function(err, result) {
             assert(!err, err);
@@ -77,13 +85,13 @@ var tests = [
             assert(result == JSON.stringify(cdata));
             if(adone && bdone && cdone) done();
         });
-        q.unpause();
+        qp.unpause();
     },
     function concurrencyTest(done) {
         var active = 0;
         var started = {};
         var fin = {};
-        var q = new Qred(client, sclient, {
+        var params = {
             log: console.log.bind(console),
             name: "concurrencytest",
             conurrency: 2,
@@ -96,8 +104,10 @@ var tests = [
                     callback(null, JSON.stringify(data));
                 }, 500);
             }
-        });
-        q.pause();
+        };
+        var q = new Qred.Manager(client, sclient, params);
+        var qp = new Qred.Processor(client, sclient, params);
+        qp.pause();
         var adata = {info:"A"};
         q.submitJob("ajobid", adata, { priority: 1 }, function(err, result) {
             fin.A = true;
@@ -133,17 +143,20 @@ var tests = [
             fin.E = true;
             assert(result == JSON.stringify(edata));
         });
-        q.unpause();
+        qp.unpause();
     },
     function delayJobs(done) {
-        var q = new Qred(client, sclient, {
+        var params = {
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
             handler: function(data, callback) {
                 callback(null, JSON.stringify(data));
             }
-        });
+        };
+        var q = new Qred.Manager(client, sclient, params);
+        new Qred.Processor(client, sclient, params);
+
         var start = Date.now();
         var data = {info:"delay"};
         q.submitJob("ajobid", data, { priority: 1, delay: 500 }, function(err, result) {
@@ -155,7 +168,7 @@ var tests = [
     },
     function attachToJob(done) {
         var handlerruns = 0;
-        var q = new Qred(client, sclient, {
+        var params =  {
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -163,10 +176,12 @@ var tests = [
                 handlerruns++;
                 callback(null, JSON.stringify(data));
             }
-        });
+        };
+        var q = new Qred.Manager(client, sclient, params);
+        var qp = new Qred.Processor(client, sclient, params);
         var data = {info:"attach"};
         var callbacks = 0;
-        q.pause();
+        qp.pause();
         q.submitJob("ajobid", data, { }, function(err, result) {
             assert(!err, err);
             assert(handlerruns === 1);
@@ -181,7 +196,7 @@ var tests = [
             callbacks++;
             if(callbacks >= 2) done();
         });
-        q.unpause();
+        qp.unpause();
     }
 
 
