@@ -29,12 +29,13 @@ Optional Options:
 * log - a function that will be used to log debug messages
 
 ```
-qred.submitJob(jobid, data, opts, callback)
+qred.submitJob(jobid, data, opts, submitted, completed)
 ```
 * jobid - a string that uniquely identifies a job. If a job with the specified id exists, it will be *replaced*.
 * data - a generic blob that represents the data that the job handler will receive when the job is ready to be run.
 * opts - job specific settings. Currently 'priority', a relative value that determines the order in which jobs are run relative to one another, and 'delay', which specifies a delay in ms that the job should be queued before being run. 
-* callback - the callback that will be fired when a handler has finished executing this job. 
+* submitted - called back when the job has been successfully submitted to the redis queue, or with an error if one occurred
+* completed - called back when the job has been removed from the queue and finished running. 
 
 ```
 qred.findJob(jobid, callback) 

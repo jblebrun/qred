@@ -11,14 +11,18 @@ try {
 }
 
 try {
-var client = redis.createClient(6480);
-var sclient = redis.createClient(6480);
+var client = redis.createClient(6479);
+var sclient = redis.createClient(6479);
 } catch(err) {
-    console.log("Run a redis server on port 6480");
+    console.log("Run a redis server on port 6479");
     process.exit(-1);
 }
 
 var default_timeout = 5000;
+
+function checkerr(err) {
+    assert(!err, err);
+}
 
 var tests = [ 
     {
@@ -36,7 +40,7 @@ var tests = [
             new Qred.Processor(params);
 
             var data = { data1: "a", data2: "b" };
-            q.submitJob("ajobid", data , {}, function(err, result) {
+            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
                 assert(!err, err);
                 assert(result == JSON.stringify(data));
                 done();
@@ -65,7 +69,7 @@ var tests = [
         var cdone = false;
         qp.pause();
         var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, function(err, result) {
+        q.submitJob("ajobid", adata, { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(cdone);
             adone = true;
@@ -73,7 +77,7 @@ var tests = [
             if(adone && bdone && cdone) done();
         });
         var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, function(err, result) {
+        q.submitJob("bjobid", bdata , { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(cdone);
             bdone = true;
@@ -81,7 +85,7 @@ var tests = [
             if(adone && bdone && cdone) done();
         });
         var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, function(err, result) {
+        q.submitJob("cjobid", cdata , { priority: -1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(!adone);
             assert(!bdone);
@@ -115,7 +119,7 @@ var tests = [
         var qp = new Qred.Processor(params);
         qp.pause();
         var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, function(err, result) {
+        q.submitJob("ajobid", adata, { priority: 1 }, checkerr, function(err, result) {
             fin.A = true;
             assert(!err, err);
             assert(started.C && started.E);
@@ -123,7 +127,7 @@ var tests = [
             if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
         });
         var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, function(err, result) {
+        q.submitJob("bjobid", bdata , { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             fin.B = true;
             assert(started.C && started.E);
@@ -131,20 +135,20 @@ var tests = [
             if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
         });
         var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, function(err, result) {
+        q.submitJob("cjobid", cdata , { priority: -1 }, checkerr, function(err, result) {
             assert(!err, err);
             fin.C = true;
             assert(result == JSON.stringify(cdata));
         });
         var ddata = {info:"D"};
-        q.submitJob("djobid", ddata , { priority: 1 }, function(err, result) {
+        q.submitJob("djobid", ddata , { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             fin.D = true;
             assert(result == JSON.stringify(ddata));
             if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
         });
         var edata = {info:"E"};
-        q.submitJob("ejobid", edata , { priority: -1 }, function(err, result) {
+        q.submitJob("ejobid", edata , { priority: -1 }, checkerr, function(err, result) {
             assert(!err, err);
             fin.E = true;
             assert(result == JSON.stringify(edata));
@@ -167,7 +171,7 @@ var tests = [
 
         var start = Date.now();
         var data = {info:"delay"};
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, function(err, result) {
+        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(Date.now() > start + 500);
             assert(result == JSON.stringify(data));
@@ -192,14 +196,14 @@ var tests = [
         var data = {info:"attach"};
         var callbacks = 0;
         qp.pause();
-        q.submitJob("ajobid", data, { }, function(err, result) {
+        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
             assert(!err, err);
             assert(handlerruns === 1);
             assert(result == JSON.stringify(data));
             callbacks++;
             if(callbacks >= 2) done();
         });
-        q.submitJob("ajobid", data, { }, function(err, result) {
+        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
             assert(!err, err);
             assert(handlerruns === 1);
             assert(result == JSON.stringify(data));
