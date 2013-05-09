@@ -10,12 +10,15 @@ try {
     process.exit(-1);
 }
 
-try {
-var client = redis.createClient(6479);
-var sclient = redis.createClient(6479);
-} catch(err) {
-    console.log("Run a redis server on port 6479");
-    process.exit(-1);
+function getClient() {
+    var client;
+    try {
+        client = redis.createClient(6479);
+    } catch(err) {
+        console.log("Run a redis server on port 6479");
+        process.exit(-1);
+    }
+    return client;
 }
 
 var default_timeout = 5000;
@@ -28,8 +31,8 @@ var tests = [
     {
         test: function singleJob(done) {
             var params = {
-                redis: client,
-                subscriber: sclient,
+                redis: getClient(),
+                subscriber: getClient(),
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
@@ -38,7 +41,6 @@ var tests = [
             };
             var q = new Qred.Manager(params);
             new Qred.Processor(params);
-
             var data = { data1: "a", data2: "b" };
             q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
                 assert(!err, err);
@@ -46,12 +48,12 @@ var tests = [
                 done();
             });
         },
-        timeout: 2000
+        timeout: 5000
     },
     function priorityJobs(done) {
         var params = {
-            redis: client,
-            subscriber: sclient,
+            redis: getClient(),
+            subscriber: getClient(),
             log: console.log.bind(console),
             name: "priotest",
             conurrency: 1,
@@ -100,8 +102,8 @@ var tests = [
         var started = {};
         var fin = {};
         var params = {
-            redis: client,
-            subscriber: sclient,
+            redis: getClient(),
+            subscriber: getClient(),
             log: console.log.bind(console),
             name: "concurrencytest",
             conurrency: 2,
@@ -157,8 +159,8 @@ var tests = [
     },
     function delayJobs(done) {
         var params = {
-            redis: client,
-            subscriber: sclient,
+            redis: getClient(),
+            subscriber: getClient(),
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -181,8 +183,8 @@ var tests = [
     function attachToJob(done) {
         var handlerruns = 0;
         var params =  {
-            redis: client,
-            subscriber: sclient,
+            redis: getClient(),
+            subscriber: getClient(),
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -211,6 +213,38 @@ var tests = [
             if(callbacks >= 2) done();
         });
         qp.unpause();
+    },
+    function snoopJob(done) {
+        var handlerruns = 0;
+        var params =  {
+            redis: getClient(),
+            subscriber: getClient(),
+            log: console.log.bind(console),
+            name: "snooptest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                handlerruns++;
+                callback(null, JSON.stringify(data));
+            }
+        };
+        var q = new Qred.Manager(params);
+        new Qred.Processor(params);
+        var data = {info:"attach"};
+        var callbacks = 0;
+        q.snoopJobbyJob("ajobid", function(err, result) {
+            assert(!err, err);
+            assert(handlerruns === 1);
+            assert(result == JSON.stringify(data));
+            callbacks++;
+            if(callbacks >= 2) done();
+        });
+        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
+            assert(!err, err);
+            assert(handlerruns === 1);
+            assert(result == JSON.stringify(data));
+            callbacks++;
+            if(callbacks >= 2) done();
+        });
     }
 
 
@@ -220,8 +254,6 @@ var tests = [
 //Run in domain to catch asserts
 function runNextTest() {
     var tdomain = Domain.create();
-    tdomain.add(client);
-    tdomain.add(sclient);
     var test = tests.shift();
     if(!test) {
         console.log("Finished tests");
