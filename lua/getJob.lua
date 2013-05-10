@@ -1,9 +1,12 @@
 --[[
 ]]
-local kDataHash, kPriorityHash, kRuntimeHash, kCreatedHash = unpack(KEYS)
+local kDataHash, kOptsHash = unpack(KEYS)
 local jobid = ARGV[1]
-local priority = redis.call('hget', kPriorityHash, jobid)
-local data = redis.call('hget', kPriorityHash, jobid)
-local created_at = redis.call('hget', kCreatedHash, jobid)
-local runtime = redis.call('hget', kRuntimeHash, jobid)
-return {jobid, priority, data, runtime, created_at}
+local exists = redis.call('hexists', kOptsHash, jobid)
+
+if exists == 0 then
+    return redis.status_reply('0')
+end
+local data = redis.call('hget', kDataHash, jobid)
+local opts = cmsgpack.unpack(redis.call('hget', kOptsHash, jobid))
+return {opts, data}

@@ -11,7 +11,7 @@
     remove that key from the queue list
     return [jobid, next_delay_check]
 ]]
-local kQueue, kDelayQueue, kDataHash, kPriorityHash, kRuntimeHash, kCreatedHash = unpack(KEYS)
+local kQueue, kDelayQueue, kDataHash, kOptsHash = unpack(KEYS)
 local now_ms = ARGV[1]
 
 -- PART A: Delayed job promotion 
@@ -20,9 +20,9 @@ local promoting = redis.pcall('zrangebyscore', kDelayQueue, 0, now_ms)
 
 -- Add those jobs to the main queue
 for i,jobid in ipairs(promoting) do
-    local priority = redis.call('hget', kPriorityHash, jobid)
+    local opts = cmsgpack.unpack(redis.call('hget', kOptsHash, jobid))
 -- TODO - can we turn this into a bulk zadd?
-    redis.pcall('zadd', kQueue, priority, jobid)
+    redis.pcall('zadd', kQueue, opts.priority, jobid)
 end
 
 -- Remove the promoted jobs from the delay queue
@@ -34,16 +34,17 @@ local jobid = redis.call('zrange', kQueue, 0, 0)[1]
 redis.call('zremrangebyrank', kQueue, 0, 0)
 if jobid then
 -- Return the next queued job
-    local priority = redis.call('hget', kPriorityHash, jobid)
     local data = redis.call('hget', kDataHash, jobid)
-    local created_at = redis.call('hget', kCreatedHash, jobid)
-    local runtime = redis.call('hget', kRuntimeHash, jobid)
-    local job = {jobid, priority, data, runtime, created_at}
+    local opts = cmsgpack.unpack(redis.call('hget', kOptsHash, jobid))
+    local job = {jobid, data, opts}
+    if opts.autoremove == "1" then
+        redis.call('hdel', kDataHash, jobid);
+        redis.call('hdel', kOptsHash, jobid);
+    end
     return job
 else 
 --If no jobs are ready, return the time until the next delayed job is ready
     local nextdelay = redis.pcall('zrange', kDelayQueue, 0, 0, 'withscores')[2]
-    redis.log(redis.LOG_WARNING, 'Returning delay '..tostring(nextdelay))
     return nextdelay
 end 
 
