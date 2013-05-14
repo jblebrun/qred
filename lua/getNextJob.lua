@@ -22,7 +22,7 @@ local promoting = redis.pcall('zrangebyscore', kDelayQueue, 0, now_ms)
 for i,jobid in ipairs(promoting) do
     local opts = cmsgpack.unpack(redis.call('hget', kOptsHash, jobid))
 -- TODO - can we turn this into a bulk zadd?
-    redis.pcall('zadd', kQueue, opts.priority, jobid)
+    redis.pcall('zadd', kQueue, opts[1], jobid)
 end
 
 -- Remove the promoted jobs from the delay queue
@@ -37,7 +37,7 @@ if jobid then
     local data = redis.call('hget', kDataHash, jobid)
     local opts = cmsgpack.unpack(redis.call('hget', kOptsHash, jobid))
     local job = {jobid, data, opts}
-    if opts.autoremove == "1" then
+    if opts[4] == "1" then
         redis.call('hdel', kDataHash, jobid);
         redis.call('hdel', kOptsHash, jobid);
     end

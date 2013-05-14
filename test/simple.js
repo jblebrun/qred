@@ -35,8 +35,8 @@ var tests = [
                 subscriber: getClient(),
                 log: console.log.bind(console),
                 name: "simpletest",
-                handler: function(data, callback) {
-                    callback(null, JSON.stringify(data));
+                handler: function(job, callback) {
+                    callback(null, JSON.stringify(job.data));
                 }
             };
             var q = new Qred.Manager(params);
@@ -57,9 +57,10 @@ var tests = [
             log: console.log.bind(console),
             name: "priotest",
             conurrency: 1,
-            handler: function(data, callback) {
+            handler: function(job, callback) {
+                assert(job.priority = job.data.p);
                 setTimeout(function() {
-                    callback(null, JSON.stringify(data));
+                    callback(null, JSON.stringify(job.data));
                 }, 500);
             }
         };
@@ -70,7 +71,7 @@ var tests = [
         var bdone = false;
         var cdone = false;
         qp.pause();
-        var adata = {info:"A"};
+        var adata = {info:"1",p:1};
         q.submitJob("ajobid", adata, { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(cdone);
@@ -78,7 +79,7 @@ var tests = [
             assert(result == JSON.stringify(adata));
             if(adone && bdone && cdone) done();
         });
-        var bdata = {info:"B"};
+        var bdata = {info:"B",p:1};
         q.submitJob("bjobid", bdata , { priority: 1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(cdone);
@@ -86,7 +87,7 @@ var tests = [
             assert(result == JSON.stringify(bdata));
             if(adone && bdone && cdone) done();
         });
-        var cdata = {info:"C"};
+        var cdata = {info:"C",p:-1};
         q.submitJob("cjobid", cdata , { priority: -1 }, checkerr, function(err, result) {
             assert(!err, err);
             assert(!adone);
@@ -107,13 +108,13 @@ var tests = [
             log: console.log.bind(console),
             name: "concurrencytest",
             conurrency: 2,
-            handler: function(data, callback) {
-                started[data.info] = true;
+            handler: function(job, callback) {
+                started[job.data.info] = true;
                 active++;
                 assert(active <= 2, "active jobs: "+active);
                 setTimeout(function() {
                     active--;
-                    callback(null, JSON.stringify(data));
+                    callback(null, JSON.stringify(job.data));
                 }, 500);
             }
         };
@@ -164,18 +165,20 @@ var tests = [
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
-            handler: function(data, callback) {
-                callback(null, JSON.stringify(data));
+            handler: function(job, callback) {
+                assert(job.data.d === job.delay);
+                callback(null, JSON.stringify(job.data));
             }
         };
         var q = new Qred.Manager(params);
         new Qred.Processor(params);
 
+        var d = 500;
         var start = Date.now();
-        var data = {info:"delay"};
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, checkerr, function(err, result) {
+        var data = {info:"delay",d:d};
+        q.submitJob("ajobid", data, { priority: 1, delay: d}, checkerr, function(err, result) {
             assert(!err, err);
-            assert(Date.now() > start + 500);
+            assert(Date.now() > start + d);
             assert(result == JSON.stringify(data));
             done();
         });
@@ -188,9 +191,9 @@ var tests = [
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
-            handler: function(data, callback) {
+            handler: function(job, callback) {
                 handlerruns++;
-                callback(null, JSON.stringify(data));
+                callback(null, JSON.stringify(job.data));
             }
         };
         var q = new Qred.Manager(params);
@@ -222,9 +225,9 @@ var tests = [
             log: console.log.bind(console),
             name: "snooptest",
             conurrency: 1,
-            handler: function(data, callback) {
+            handler: function(job, callback) {
                 handlerruns++;
-                callback(null, JSON.stringify(data));
+                callback(null, JSON.stringify(job.data));
             }
         };
         var q = new Qred.Manager(params);
@@ -253,8 +256,8 @@ var tests = [
             log: console.log.bind(console),
             name: "nxtest",
             conurrency: 1,
-            handler: function(data, callback) {
-                callback(null, JSON.stringify(data));
+            handler: function(job, callback) {
+                callback(null, JSON.stringify(job.data));
             }
         };
         var q = new Qred.Manager(params);
@@ -287,8 +290,8 @@ var tests = [
             log: console.log.bind(console),
             name: "removetest",
             conurrency: 1,
-            handler: function(data, callback) {
-                callback(null, JSON.stringify(data));
+            handler: function(job, callback) {
+                callback(null, JSON.stringify(job.data));
             }
         };
         var verify = function verify() {

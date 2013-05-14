@@ -15,7 +15,7 @@ if nx == "1" then
     end
 end
 redis.call('hset', kDataHash, jobid, data)
-local opts = cmsgpack.pack({delay=delay, priority=priority, nx=nx, autoremove=autoremove});
+local opts = cmsgpack.pack({priority, delay, nx, autoremove});
 redis.call('hset', kOptsHash, jobid, opts)
 if delay > 0 then
     redis.call('zadd', kDelayQueue, run_at, jobid)
