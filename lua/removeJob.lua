@@ -5,10 +5,10 @@ Get all job fields
 Delete the job
 Return job fields
 ]]
-local kQueue, kDelayQueue, kDataHash, kOptsHash = unpack(KEYS)
+local kQueue, kDelayQueue, kJobKey, kDelayPriorities = unpack(KEYS)
 local jobid = ARGV[1]
-redis.call('hdel', kDataHash, jobid)
-redis.call('hdel', kOptsHash, jobid)
+redis.call('del', kJobKey);
 redis.call('zrem', kQueue, jobid)
 redis.call('zrem', kDelayQueue, jobid)
+redis.call('zrem', kDelayPriorities, jobid)
 return result

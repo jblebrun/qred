@@ -294,10 +294,11 @@ var tests = [
         var verify = function verify() {
             q.findJob("akeptjobid", function(err, job) {
                 assert(!err, err);
-                assert(job.length === 2);
+                assert(job);
+                assert(job.id === "akeptjobid");
                 q.findJob("aremovedjobid", function(err, job) {
                     assert(!err, err);
-                    assert(job === "0", job);
+                    assert(!job, JSON.stringify(job));
                     done();
                 });
             });
@@ -313,14 +314,14 @@ var tests = [
         }, function(err, result) {
             assert(!err, err);
             assert(result == JSON.stringify(data));
-            if(++callbacks >= 2) verify();
+            if(++callbacks >= 2) setTimeout(verify, 10);
         });
-        q.submitJob("aremovedjobid", data2, { note: "a", autoremove: 1 }, function(err) {
+        q.submitJob("aremovedjobid", data2, { note: "a", autoremove: 10 }, function(err) {
             assert(!err, err);
         }, function(err, result) {
             assert(!err, err);
             assert(result == JSON.stringify(data2));
-            if(++callbacks >= 2) verify();
+            if(++callbacks >= 2) setTimeout(verify, 10);
         });
         qp.unpause();
     }
