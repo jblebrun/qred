@@ -288,7 +288,6 @@ var tests = [
             name: "removetest",
             conurrency: 1,
             handler: function(data, callback) {
-                assert(false, "Should not have run");
                 callback(null, JSON.stringify(data));
             }
         };
