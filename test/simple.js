@@ -280,6 +280,40 @@ var tests = [
         });
         qp.unpause();
     },
+    function remove(done) {
+        var params =  {
+            redis: getClient(),
+            subscriber: getClient(),
+            log: console.log.bind(console),
+            name: "removetest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                assert(false, "Should not have run");
+                callback(null, JSON.stringify(data));
+            }
+        };
+        var q = new Qred.Manager(params);
+        new Qred.Processor(params);
+        var data = {info:"nx"};
+        var callbacks = 0;
+        q.submitJob("aremovejob", data, { note: "a" }, function(err, result) {
+            assert(!err, err);
+            assert(result === "1");
+            if(++callbacks >= 2) done();
+        }, function(err) {
+            assert(!err);
+            assert(false, "Shouldn't get here");
+        });
+        q.removeJob("aremovejob", function(err, result) {
+            assert(!err, err);
+            assert(result instanceof Array);
+            assert(result.length === 3);
+            assert(result[0] === 1);
+            assert(result[1] === 1);
+            assert(result[2] === 0);
+            if(++callbacks >= 2) done();
+        });
+    },
     function autoremove(done) {
         var params =  {
             redis: getClient(),

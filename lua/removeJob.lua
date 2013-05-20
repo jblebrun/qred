@@ -7,8 +7,7 @@ Return job fields
 ]]
 local kQueue, kDelayQueue, kJobKey, kDelayPriorities = unpack(KEYS)
 local jobid = ARGV[1]
-redis.call('del', kJobKey);
-redis.call('zrem', kQueue, jobid)
-redis.call('zrem', kDelayQueue, jobid)
-redis.call('zrem', kDelayPriorities, jobid)
-return result
+local removed = redis.call('hdel', kOptsHash, jobid)
+local queued = redis.call('zrem', kQueue, jobid)
+local delayed = redis.call('zrem', kDelayQueue, jobid)
+return {removed, queued, delayed}
