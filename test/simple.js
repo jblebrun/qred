@@ -36,7 +36,10 @@ var tests = [
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
-                    callback(null, JSON.stringify(data));
+                    q.findJob('ajobid', function(err, job) {
+                        assert(job.status === 'active');
+                        callback(null, JSON.stringify(data));
+                    });
                 }
             };
             var q = new Qred.Manager(params);
@@ -45,7 +48,10 @@ var tests = [
             q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
                 assert(!err, err);
                 assert(result == JSON.stringify(data));
-                done();
+                q.findJob('ajobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                    done();
+                });
             });
         },
         timeout: 5000
@@ -306,10 +312,12 @@ var tests = [
         q.removeJob("aremovejob", function(err, result) {
             assert(!err, err);
             assert(result instanceof Array);
-            assert(result.length === 3);
+            assert(result.length === 5);
             assert(result[0] === 1);
             assert(result[1] === 1);
             assert(result[2] === 0);
+            assert(result[3] === 0);
+            assert(result[4] === 0);
             if(++callbacks >= 2) done();
         });
     },
@@ -342,7 +350,7 @@ var tests = [
         var data2 = {info:"autorem2"};
         var callbacks = 0;
         qp.pause();
-        q.submitJob("akeptjobid", data, { note: "a", autoremove: 0 }, function(err) {
+        q.submitJob("akeptjobid", data, { note: "a", autoremove: -1 }, function(err) {
             assert(!err, err);
         }, function(err, result) {
             assert(!err, err);
@@ -377,6 +385,7 @@ function runNextTest() {
         console.log("*** Test "+test.name+" failed");
         console.log(err.message);
         console.log(err.stack);
+        process.exit(-1);
         runNextTest();
     });
     tdomain.run(function() {
