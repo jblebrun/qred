@@ -1,38 +1,17 @@
 var assert = require("assert");
-var Domain = require("domain");
-
+var harness = require("./harness");
 var Qred = require("../index");
 
-try {
-    var redis = require("redis");
-} catch(err) {
-    console.log("npm install redis to run tests");
-    process.exit(-1);
-}
-
-function getClient() {
-    var client;
-    try {
-        client = redis.createClient(6479);
-    } catch(err) {
-        console.log("Run a redis server on port 6479");
-        process.exit(-1);
-    }
-    return client;
-}
-
-var default_timeout = 5000;
-
-function checkerr(err) {
+var checkerr = function(err) {
     assert(!err, err);
-}
+};
 
 var tests = [ 
     {
         test: function singleJob(done) {
             var params = {
-                redis: getClient(),
-                subscriber: getClient(),
+                redis: harness.getClient(),
+                subscriber: harness.getClient(),
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
@@ -58,8 +37,8 @@ var tests = [
     },
     function priorityJobs(done) {
         var params = {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "priotest",
             conurrency: 1,
@@ -108,8 +87,8 @@ var tests = [
         var started = {};
         var fin = {};
         var params = {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "concurrencytest",
             conurrency: 2,
@@ -165,8 +144,8 @@ var tests = [
     },
     function delayJobs(done) {
         var params = {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -189,8 +168,8 @@ var tests = [
     function attachToJob(done) {
         var handlerruns = 0;
         var params =  {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "delaytest",
             conurrency: 1,
@@ -223,8 +202,8 @@ var tests = [
     function snoopJob(done) {
         var handlerruns = 0;
         var params =  {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "snooptest",
             conurrency: 1,
@@ -254,8 +233,8 @@ var tests = [
     },
     function nx(done) {
         var params =  {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "nxtest",
             conurrency: 1,
@@ -288,8 +267,8 @@ var tests = [
     },
     function remove(done) {
         var params =  {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "removetest",
             conurrency: 1,
@@ -323,8 +302,8 @@ var tests = [
     },
     function autoremove(done) {
         var params =  {
-            redis: getClient(),
-            subscriber: getClient(),
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
             log: console.log.bind(console),
             name: "removetest",
             conurrency: 1,
@@ -368,53 +347,12 @@ var tests = [
     }
 ];
 
+
 function beforeeach(done) {
-    getClient().flushall(function(err) { assert(!err); done(); });
+    harness.getClient().flushall(function(err) { assert(!err); done(); });
 }
 
+harness.go(tests, beforeeach, function(err) {
+    process.exit(!!err);
+});
 
-//Run in domain to catch asserts
-function runNextTest() {
-    var tdomain = Domain.create();
-    var test = tests.shift();
-    if(!test) {
-        console.log("Finished tests");
-        process.exit(0);
-    }
-    tdomain.on('error', function(err) {
-        console.log("*** Test "+test.name+" failed");
-        console.log(err.message);
-        console.log(err.stack);
-        process.exit(-1);
-        runNextTest();
-    });
-    tdomain.run(function() {
-        var timeout = default_timeout;
-        if(test instanceof Function) {
-            test = test; 
-        } else if (test instanceof Object && test.hasOwnProperty('test')) {
-            if(test.hasOwnProperty("timeout")) {
-                timeout = test.timeout; 
-            }
-            test = test.test;
-        } else {
-            assert('Test entries should be functions, or objects with a field called "test" that is a function');
-        }
-        console.log("--- Starting test "+test.name+(timeout?" (Times out in "+timeout+")":""));
-
-        var timeout_id;
-        beforeeach(function() {
-            test(function() {
-                clearTimeout(timeout_id);
-                console.log("    Test \""+test.name+"\" passed");
-                process.nextTick(runNextTest);
-            });
-        });
-        timeout_id = setTimeout(function() {
-            assert(false, test.name+" timed out!");
-        }, timeout);
-        tdomain.add(timeout_id);
-    });
-}
-
-runNextTest();
