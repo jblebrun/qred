@@ -29,7 +29,11 @@ else
     redis.call('zadd', kQueue, priority, jobid)
     redis.call('zrem', kDelayQueue, jobid)
 end
-redis.call('srem', kActiveSet, jobid);
-redis.call('srem', kCompleteSet, jobid);
+redis.call('srem', kActiveSet, jobid)
+redis.call('srem', kCompleteSet, jobid)
 redis.call('zadd', kLiveSet, '+inf', jobid)
-return redis.status_reply('1')
+local delayed = redis.call('zcard', kDelayQueue)
+local queued = redis.call('zcard', kQueue)
+local active = redis.call('scard', kActiveSet)
+local complete = redis.call('scard', kCompleteSet)
+return {"1",delayed,queued,active,complete}

@@ -6,6 +6,17 @@ var checkerr = function(err) {
     assert(!err, err);
 };
 
+var countresult = function(nums) {
+    return function(err, result) {
+        assert(!err);
+        assert(result);
+        assert(result.length === nums.length);
+        for(var i = 0; i < result.length; i++) {
+            assert(result[i] === nums[i]);
+        }
+    };
+};
+
 var tests = [ 
     {
         test: function singleJob(done) {
@@ -56,7 +67,7 @@ var tests = [
         var cdone = false;
         qp.pause();
         var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, checkerr, function(err, result) {
+        q.submitJob("ajobid", adata, { priority: 1 }, countresult(["1",0,1,0,0]), function(err, result) {
             assert(!err, err);
             assert(cdone);
             adone = true;
@@ -64,7 +75,7 @@ var tests = [
             if(adone && bdone && cdone) done();
         });
         var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, checkerr, function(err, result) {
+        q.submitJob("bjobid", bdata , { priority: 1 }, countresult(["1",0,2,0,0]), function(err, result) {
             assert(!err, err);
             assert(cdone);
             bdone = true;
@@ -72,7 +83,7 @@ var tests = [
             if(adone && bdone && cdone) done();
         });
         var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, checkerr, function(err, result) {
+        q.submitJob("cjobid", cdata , { priority: -1 }, countresult(["1",0,3,0,0]), function(err, result) {
             assert(!err, err);
             assert(!adone);
             assert(!bdone);
@@ -158,7 +169,7 @@ var tests = [
 
         var start = Date.now();
         var data = {info:"delay"};
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, checkerr, function(err, result) {
+        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]), function(err, result) {
             assert(!err, err);
             assert(Date.now() > start + 500);
             assert(result == JSON.stringify(data));
@@ -190,7 +201,7 @@ var tests = [
             callbacks++;
             if(callbacks >= 2) done();
         });
-        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
+        q.submitJob("ajobid", data, { }, countresult(["1", 0, 1, 0, 0]), function(err, result) {
             assert(!err, err);
             assert(handlerruns === 1);
             assert(result == JSON.stringify(data));
@@ -247,10 +258,7 @@ var tests = [
         var data = {info:"nx"};
         var callbacks = 0;
         qp.pause();
-        q.submitJob("anxjobid", data, { note: "a", nx: 1 }, function(err, result) {
-            assert(!err, err);
-            assert(result === "1");
-        }, function(err, result) {
+        q.submitJob("anxjobid", data, { note: "a", nx: 1 }, countresult(["1",0,1,0,0]), function(err, result) {
             assert(!err, err);
             assert(result == JSON.stringify(data));
             if(++callbacks >= 2) done();
@@ -282,7 +290,12 @@ var tests = [
         var callbacks = 0;
         q.submitJob("aremovejob", data, { note: "a" }, function(err, result) {
             assert(!err, err);
-            assert(result === "1");
+            assert(result);
+            assert(result[0] === "1");
+            assert(result[1] === 0);
+            assert(result[2] === 1);
+            assert(result[3] === 0);
+            assert(result[4] === 0);
             if(++callbacks >= 2) done();
         }, function(err) {
             assert(!err);
