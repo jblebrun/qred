@@ -22,6 +22,10 @@ exports.getClient = function() {
 
 var default_timeout = 5000;
 
+var specified_tests = null;
+if(process.env.tests > 0) {
+    specified_tests = process.env.tests.split(',');
+}
 
 
 exports.go = function(tests, beforeeach, complete) {
@@ -32,6 +36,12 @@ exports.go = function(tests, beforeeach, complete) {
         if(!test) {
             console.log("Finished tests");
             complete(null);
+        }
+        var name = test.name || test.test.name;
+        if(specified_tests && specified_tests.indexOf(name) < 0) {
+            console.log("specified_tests: "+specified_tests.length);
+            console.log("Skipping "+name);
+            return runNextTest();
         }
         tdomain.on('error', function(err) {
             console.log("*** Test "+test.name+" failed");
