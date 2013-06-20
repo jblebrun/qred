@@ -242,7 +242,7 @@ var tests = [
             if(callbacks >= 2) done();
         });
     },
-    function nx(done) {
+    function nxdq(done) {
         var params =  {
             redis: harness.getClient(),
             subscriber: harness.getClient(),
@@ -258,18 +258,60 @@ var tests = [
         var data = {info:"nx"};
         var callbacks = 0;
         qp.pause();
-        q.submitJob("anxjobid", data, { note: "a", nx: 1 }, countresult(["1",0,1,0,0]), function(err, result) {
+        q.submitJob("anxjobid", data, { note: "a" }, countresult(["1",0,1,0,0]), function(err, result) {
             assert(!err, err);
             assert(result == JSON.stringify(data));
             if(++callbacks >= 2) done();
         });
-        q.submitJob("anxjobid", data, { note: "b", nx: 1}, function(err, result) {
+        q.submitJob("anxjobid", data, { note: "b", nx: "dq" }, function(err, result) {
             assert(!err);
-            assert(result === "0");
+            assert(result);
+            assert(result[0] === "0");
+            assert(result[1] === "queued");
             if(++callbacks >= 2) done();
         }, function(err) { 
             assert(!err, err);
             assert(false, "shouldn't have run");
+        });
+        qp.unpause();
+    },
+    function nxac(done) {
+        var params =  {
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
+            log: console.log.bind(console),
+            name: "nxtest2",
+            conurrency: 1,
+            handler: function(data, callback) {
+                callback(null, JSON.stringify(data));
+            }
+        };
+        var finish = function() {
+            q.submitJob("anx2jobid", data, { note: "b", nx: "ac" }, function(err, result) {
+                assert(!err);
+                assert(result);
+                assert(result[0] === "0", result);
+                assert(result[1] === "complete");
+                done();
+            }, function(err) {
+                assert(!err, err);
+                assert(false, "shouldn't have run");
+            });
+        };
+        var q = new Qred.Manager(params);
+        var qp = new Qred.Processor(params);
+        var data = {info:"nx"};
+        var callbacks = 0;
+        qp.pause();
+        q.submitJob("anx2jobid", data, { note: "a" }, countresult(["1",0,1,0,0]), function(err, result) {
+            assert(!err, err);
+            assert(result == JSON.stringify(data));
+            if(++callbacks >= 2) finish();
+        });
+        q.submitJob("anx2jobid", data, { note: "a", nx: "ac" }, countresult(["1",0,1,0,0]), function(err, result) {
+            assert(!err, err);
+            assert(result == JSON.stringify(data));
+            if(++callbacks >= 2) finish();
         });
         qp.unpause();
     },

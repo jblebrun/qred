@@ -8,16 +8,18 @@ local kQueue, kDelayQueue, kDelayPriorities, kLiveSet, kActiveSet, kCompleteSet,
 local jobid, data, priority, now_ms, delay, nx, autoremove = unpack(ARGV)
 delay = tonumber(delay)
 local run_at = tonumber(now_ms) + delay
-local existing = redis.call('exists', kJobKey)
-if nx == "1" then
-    if existing == 1 then
-        return redis.status_reply('0')
+local status = redis.call('hget', kJobKey, 'status')
+
+if nx and status then
+    local init = string.sub(status, 1, 1)
+    if string.find(nx, init) then
+        return {'0',status, nx}
     end
 end
 
 local created_at = now_ms
 
-redis.call('hmset', kJobKey, 'data', data, 'priority', priority, 'run_at', run_at, 'delay', delay, 'nx', nx, 'autoremove', autoremove, 'c', created_at, 'u', now_ms)
+redis.call('hmset', kJobKey, 'data', data, 'priority', priority, 'run_at', run_at, 'delay', delay, 'autoremove', autoremove, 'c', created_at, 'u', now_ms)
 if delay > 0 then
     redis.call('hset', kJobKey, 'status', 'delayed')
     redis.call('hset', kDelayPriorities, jobid, priority)
