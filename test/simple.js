@@ -165,16 +165,25 @@ var tests = [
             }
         };
         var q = new Qred.Manager(params);
-        new Qred.Processor(params);
+        var qp = new Qred.Processor(params);
 
         var start = Date.now();
         var data = {info:"delay"};
+        var cb = 0;
+        qp.pause();
+        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]), function(err, result) {
+            assert(!err, err);
+            assert(Date.now() > start + 500);
+            assert(result == JSON.stringify(data));
+            if(++cb >= 2) done();
+        });
         q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]), function(err, result) {
             assert(!err, err);
             assert(Date.now() > start + 500);
             assert(result == JSON.stringify(data));
-            done();
+            if(++cb >= 2) done();
         });
+        qp.unpause();
     },
     function attachToJob(done) {
         var handlerruns = 0;
