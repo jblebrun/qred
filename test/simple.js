@@ -46,6 +46,32 @@ var tests = [
         },
         timeout: 5000
     },
+    function errors(done) {
+        var params = {
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
+            log: console.log.bind(console),
+            name: "errorest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                setTimeout(function() {
+                    callback(new Error());
+                }, 500);
+            }
+        };
+        var q = new Qred.Manager(params);
+        new Qred.Processor(params);
+        var data = { data1: "a", data2: "b" };
+        q.submitJob("aerrjobid", data , {}, checkerr, function(err, result) {
+            assert(err);
+            assert(!result);
+            q.findJob('aerrjobid', function(err, job) {
+                assert(job.status === 'error', job.status);
+                done();
+            });
+        });
+    },
+
     function priorityJobs(done) {
         var params = {
             redis: harness.getClient(),
