@@ -23,7 +23,7 @@ exports.getClient = function() {
 var default_timeout = 5000;
 
 var specified_tests = null;
-if(process.env.tests > 0) {
+if(process.env.tests && process.env.tests.length > 0) {
     specified_tests = process.env.tests.split(',');
 }
 

@@ -45,6 +45,72 @@ var tests = [
             });
         },
         timeout: 5000
+    }, {
+        test: function multiProc(done) {
+            var called1 = false;
+            var called2 = false;
+            var params = {
+                redis: harness.getClient(),
+                subscriber: harness.getClient(),
+                log: console.log.bind(console),
+                name: "multitest",
+                concurrency: 1,
+                handler: function(data, callback) {
+                    assert(!called1);
+                    called1 = true;
+                    setTimeout(function() {
+                        callback(null, JSON.stringify(data));
+                    }, 1000);
+                }
+            };
+            var params2 = {
+                redis: params.redis,
+                subscriber: params.subscriber,
+                log: params.log,
+                name: params.name,
+                concurrency: 1,
+                handler: function(data, callback) {
+                    assert(!called2);
+                    called2 = true;
+                    setTimeout(function() {
+                        callback(null, JSON.stringify(data));
+                    }, 1000);
+                }
+            };
+           
+            var finish = function() {
+                assert(called1);
+                assert(called2);
+                done();
+            };
+
+            var q = new Qred.Manager(params);
+            var qp1 = new Qred.Processor(params);
+            var qp2 = new Qred.Processor(params2);
+            var data = { data1: "a", data2: "b" };
+            qp1.pause();
+            qp2.pause();
+            var cbs = 0;
+            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
+                assert(!err, err);
+                assert(result == JSON.stringify(data));
+                q.findJob('ajobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                    if(++cbs >= 2) finish();
+                });
+            });
+            q.submitJob("a2ndjobid", data , {}, checkerr, function(err, result) {
+                assert(!err, err);
+                assert(result == JSON.stringify(data));
+                q.findJob('a2ndjobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                    if(++cbs >= 2) finish();
+                });
+            });
+            qp1.unpause();
+            qp2.unpause();
+        },
+        timeout: 5000
     },
     function errors(done) {
         var params = {
