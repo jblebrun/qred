@@ -26,6 +26,7 @@ var tests = [
                 log: console.log.bind(console),
                 name: "simpletest",
                 handler: function(data, callback) {
+                    q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
                     q.findJob('ajobid', function(err, job) {
                         assert(job.status === 'active');
                         callback(null, JSON.stringify(data));
@@ -41,6 +42,47 @@ var tests = [
                 q.findJob('ajobid', function(err, job) {
                     assert(job.status === 'complete', job.status);
                     done();
+                });
+            });
+        },
+        timeout: 5000
+    }, {
+        test: function progress(done) {
+            var params = {
+                redis: harness.getClient(),
+                subscriber: harness.getClient(),
+                log: console.log.bind(console),
+                name: "simpletest",
+                handler: function(data, callback) {
+                    q.markProgress('ajobid', 'Looking up job', function(err) {
+                        assert(!err);
+                        q.findJob('ajobid', function(err, job) {
+                            assert(!err);
+                            assert(job.status === 'active');
+                            q.markProgress('ajobid', 'Found job', function(err) {
+                                assert(!err);
+                                callback(null, JSON.stringify(data));
+                            });
+                        });
+                    });
+                }
+            };
+            var q = new Qred.Manager(params);
+            new Qred.Processor(params);
+            var data = { data1: "a", data2: "b" };
+            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
+                assert(!err, err);
+                assert(result == JSON.stringify(data));
+                q.findJob('ajobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                    q.getProgress('ajobid', function(err, progress) {
+                        assert(!err);
+                        assert(progress);
+                        assert(progress.length === 2);
+                        assert(progress[0].indexOf('Looking up job') >= 0, progress[0]);
+                        assert(progress[1].indexOf('Found job') >= 0, progress[1]);
+                        done();
+                    });
                 });
             });
         },
