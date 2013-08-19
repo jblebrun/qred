@@ -47,6 +47,40 @@ var tests = [
         },
         timeout: 5000
     }, {
+        test: function singleJobExpire(done) {
+            var params = {
+                redis: harness.getClient(),
+                subscriber: harness.getClient(),
+                log: console.log.bind(console),
+                name: "simpletest",
+                handler: function(data, callback) {
+                    q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
+                    q.findJob('ajobid', function(err, job) {
+                        assert(job.status === 'active');
+                        callback(null, JSON.stringify(data));
+                    });
+                }
+            };
+            var q = new Qred.Manager(params);
+            new Qred.Processor(params);
+            var data = { data1: "a", data2: "b" };
+            q.submitJob("ajobid", data , { autoremove: 2000 }, checkerr, function(err, result) {
+                assert(!err, err);
+                assert(result == JSON.stringify(data));
+                q.findJob('ajobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                });
+                setTimeout(function() {
+                    q.findJob('ajobid', function(err, job) {
+                        assert(!err);
+                        assert(!job);
+                        done();
+                    });
+                }, 3000);
+            });
+        },
+        timeout: 5000
+    }, {
         test: function progress(done) {
             var params = {
                 redis: harness.getClient(),
