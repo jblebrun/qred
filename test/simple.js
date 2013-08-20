@@ -353,6 +353,35 @@ var tests = [
         });
         qp.unpause();
     },
+    function delayJobsNamedCallbacks(done) {
+        var params = {
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
+            log: console.log.bind(console),
+            name: "delaytest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                callback(null, JSON.stringify(data));
+            }
+        };
+        var q = new Qred.Manager(params);
+        var qp = new Qred.Processor(params);
+
+        var start = Date.now();
+        var data = {info:"delay"};
+        var cb = 0;
+        qp.pause();
+        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]), function named() {
+            assert(false);
+        });
+        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]), function named(err, result) {
+            assert(!err, err);
+            assert(Date.now() > start + 500);
+            assert(result == JSON.stringify(data));
+            if(++cb >= 1) done();
+        });
+        qp.unpause();
+    },
     function attachToJob(done) {
         var handlerruns = 0;
         var params =  {
