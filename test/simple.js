@@ -36,14 +36,18 @@ var tests = [
             var q = new Qred.Manager(params);
             new Qred.Processor(params);
             var data = { data1: "a", data2: "b" };
-            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
-                assert(!err, err);
-                assert(result == JSON.stringify(data));
+            q.submitJob("ajobid", data , {}, checkerr);
+            var verify = function(message) {
+                assert(message.jobid === "ajobid");
+                assert(message);
+                assert(!message.error, message.error);
+                assert(message.result == JSON.stringify(data));
                 q.findJob('ajobid', function(err, job) {
                     assert(job.status === 'complete', job.status);
                     done();
                 });
-            });
+            };
+            q.once('complete', verify);
         },
         timeout: 5000
     }, {
@@ -64,9 +68,11 @@ var tests = [
             var q = new Qred.Manager(params);
             new Qred.Processor(params);
             var data = { data1: "a", data2: "b" };
-            q.submitJob("ajobid", data , { autoremove: 2000 }, checkerr, function(err, result) {
-                assert(!err, err);
-                assert(result == JSON.stringify(data));
+            q.submitJob("ajobid", data , { autoremove: 2000 }, checkerr);
+            var verify = function(message) {
+                assert(message.jobid === "ajobid");
+                assert(!message.error, message.error);
+                assert(message.result == JSON.stringify(data));
                 q.findJob('ajobid', function(err, job) {
                     assert(job.status === 'complete', job.status);
                 });
@@ -77,7 +83,8 @@ var tests = [
                         done();
                     });
                 }, 3000);
-            });
+            };
+            q.once("complete", verify);
         },
         timeout: 5000
     }, {
@@ -104,9 +111,11 @@ var tests = [
             var q = new Qred.Manager(params);
             new Qred.Processor(params);
             var data = { data1: "a", data2: "b" };
-            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
-                assert(!err, err);
-                assert(result == JSON.stringify(data));
+            q.submitJob("ajobid", data , {}, checkerr);
+            var verify = function(message) {
+                assert(message.jobid === "ajobid");
+                assert(!message.error, message.error);
+                assert(message.result == JSON.stringify(data));
                 q.findJob('ajobid', function(err, job) {
                     assert(job.status === 'complete', job.status);
                     q.getProgress('ajobid', function(err, progress) {
@@ -118,7 +127,8 @@ var tests = [
                         done();
                     });
                 });
-            });
+            };
+            q.once("complete", verify);
         },
         timeout: 5000
     }, {
@@ -157,6 +167,7 @@ var tests = [
             var finish = function() {
                 assert(called1);
                 assert(called2);
+                q.removeListener('complete', verify);
                 done();
             };
 
@@ -167,22 +178,25 @@ var tests = [
             qp1.pause();
             qp2.pause();
             var cbs = 0;
-            q.submitJob("ajobid", data , {}, checkerr, function(err, result) {
-                assert(!err, err);
-                assert(result == JSON.stringify(data));
-                q.findJob('ajobid', function(err, job) {
-                    assert(job.status === 'complete', job.status);
-                    if(++cbs >= 2) finish();
-                });
-            });
-            q.submitJob("a2ndjobid", data , {}, checkerr, function(err, result) {
-                assert(!err, err);
-                assert(result == JSON.stringify(data));
-                q.findJob('a2ndjobid', function(err, job) {
-                    assert(job.status === 'complete', job.status);
-                    if(++cbs >= 2) finish();
-                });
-            });
+            q.submitJob("ajobid", data , {}, checkerr);
+            q.submitJob("a2ndjobid", data , {}, checkerr);
+            
+            var verify = function(message) {
+                assert(!message.error, message.error);
+                assert(message.result == JSON.stringify(data));
+                if(message.jobid === "ajobid") {
+                    q.findJob('ajobid', function(err, job) {
+                        assert(job.status === 'complete', job.status);
+                        if(++cbs >= 2) finish();
+                    });
+                } else if(message.jobid === "a2ndjobid") {
+                    q.findJob('a2ndjobid', function(err, job) {
+                        assert(job.status === 'complete', job.status);
+                        if(++cbs >= 2) finish();
+                    });
+                }
+            };
+            q.on('complete', verify);
             qp1.unpause();
             qp2.unpause();
         },
@@ -204,14 +218,18 @@ var tests = [
         var q = new Qred.Manager(params);
         new Qred.Processor(params);
         var data = { data1: "a", data2: "b" };
-        q.submitJob("aerrjobid", data , {}, checkerr, function(err, result) {
-            assert(err);
-            assert(!result);
+        q.submitJob("aerrjobid", data , {}, checkerr);
+        var verify = function(message) {
+            assert(message);
+            assert(message.jobid === "aerrjobid");
+            assert(message.error);
+            assert(!message.result);
             q.findJob('aerrjobid', function(err, job) {
                 assert(job.status === 'error', job.status);
                 done();
             });
-        });
+        };
+        q.once('complete', verify);
     },
 
     function priorityJobs(done) {
@@ -234,31 +252,35 @@ var tests = [
         var bdone = false;
         var cdone = false;
         qp.pause();
+        var verify = function(message) {
+            assert(message);
+            assert(!message.error, message.error);
+            if(message.jobid === "ajobid") {
+                assert(cdone);
+                adone = true;
+                assert(message.result == JSON.stringify(adata));
+            } else if(message.jobid === "bjobid") {
+                assert(cdone);
+                assert(message.result == JSON.stringify(bdata));
+                bdone = true;
+            } else if(message.jobid === "cjobid") {
+                assert(!adone);
+                assert(!bdone);
+                assert(message.result == JSON.stringify(cdata));
+                cdone = true;
+            }
+            if(adone && bdone && cdone) {
+                q.removeListener('complete', verify);
+                done();
+            }
+        };
         var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, countresult(["1",0,1,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(cdone);
-            adone = true;
-            assert(result == JSON.stringify(adata));
-            if(adone && bdone && cdone) done();
-        });
+        q.submitJob("ajobid", adata, { priority: 1 }, countresult(["1",0,1,0,0]));
         var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, countresult(["1",0,2,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(cdone);
-            bdone = true;
-            assert(result == JSON.stringify(bdata));
-            if(adone && bdone && cdone) done();
-        });
+        q.submitJob("bjobid", bdata , { priority: 1 }, countresult(["1",0,2,0,0]));
         var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, countresult(["1",0,3,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(!adone);
-            assert(!bdone);
-            cdone = true;
-            assert(result == JSON.stringify(cdata));
-            if(adone && bdone && cdone) done();
-        });
+        q.submitJob("cjobid", cdata , { priority: -1 }, countresult(["1",0,3,0,0]));
+        q.on('complete', verify);
         qp.unpause();
     },
     function concurrencyTest(done) {
@@ -284,41 +306,38 @@ var tests = [
         var q = new Qred.Manager(params);
         var qp = new Qred.Processor(params);
         qp.pause();
-        var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, checkerr, function(err, result) {
-            fin.A = true;
-            assert(!err, err);
-            assert(started.C && started.E);
-            assert(result == JSON.stringify(adata));
-            if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
-        });
-        var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, checkerr, function(err, result) {
-            assert(!err, err);
-            fin.B = true;
-            assert(started.C && started.E);
-            assert(result == JSON.stringify(bdata));
-            if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
-        });
-        var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, checkerr, function(err, result) {
-            assert(!err, err);
-            fin.C = true;
-            assert(result == JSON.stringify(cdata));
-        });
-        var ddata = {info:"D"};
-        q.submitJob("djobid", ddata , { priority: 1 }, checkerr, function(err, result) {
-            assert(!err, err);
-            fin.D = true;
-            assert(result == JSON.stringify(ddata));
-            if(fin.A && fin.B && fin.C && fin.D && fin.E) done();
-        });
-        var edata = {info:"E"};
-        q.submitJob("ejobid", edata , { priority: -1 }, checkerr, function(err, result) {
-            assert(!err, err);
-            fin.E = true;
-            assert(result == JSON.stringify(edata));
-        });
+        var verify = function(message) {
+            assert(!message.error, message.error);
+            fin[message.jobid] = true;
+            if(message.jobid === "ajobid") {
+                assert(started.cjobid && started.ejobid);
+                assert(message.result == JSON.stringify(adata));
+            } else if(message.jobid === "bjobid") {
+                assert(started.cjobid && started.ejobid);
+                assert(message.result == JSON.stringify(bdata));
+            } else if(message.jobid === "cjobid") {
+                assert(message.result == JSON.stringify(cdata));
+            } else if(message.jobid === "djobid") {
+                assert(message.result == JSON.stringify(ddata));
+            } else if(message.jobid === "ejobid") {
+                assert(message.result == JSON.stringify(edata));
+            }
+            if(fin.ajobid && fin.bjobid && fin.cjobid && fin.djobid && fin.ejobid) {
+                q.removeListener('complete', verify);
+                done();
+            }
+        };
+        var adata = {info:"ajobid"};
+        q.submitJob("ajobid", adata, { priority: 1 }, checkerr);
+        var bdata = {info:"bjobid"};
+        q.submitJob("bjobid", bdata , { priority: 1 }, checkerr);
+        var cdata = {info:"cjobid"};
+        q.submitJob("cjobid", cdata , { priority: -1 }, checkerr);
+        var ddata = {info:"djobid"};
+        q.submitJob("djobid", ddata , { priority: 1 }, checkerr);
+        var edata = {info:"ejobid"};
+        q.submitJob("ejobid", edata , { priority: -1 }, checkerr);
+        q.on('complete', verify);
         qp.unpause();
     },
     function delayJobs(done) {
@@ -337,116 +356,17 @@ var tests = [
 
         var start = Date.now();
         var data = {info:"delay"};
-        var cb = 0;
         qp.pause();
-        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]), function(err, result) {
-            assert(!err, err);
+        var verify = function(message) {
+            assert(!message.error);
+            assert(message.result == JSON.stringify(data));
             assert(Date.now() > start + 500);
-            assert(result == JSON.stringify(data));
-            if(++cb >= 2) done();
-        });
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(Date.now() > start + 500);
-            assert(result == JSON.stringify(data));
-            if(++cb >= 2) done();
-        });
-        qp.unpause();
-    },
-    function delayJobsNamedCallbacks(done) {
-        var params = {
-            redis: harness.getClient(),
-            subscriber: harness.getClient(),
-            log: console.log.bind(console),
-            name: "delaytest",
-            conurrency: 1,
-            handler: function(data, callback) {
-                callback(null, JSON.stringify(data));
-            }
+            done();
         };
-        var q = new Qred.Manager(params);
-        var qp = new Qred.Processor(params);
-
-        var start = Date.now();
-        var data = {info:"delay"};
-        var cb = 0;
-        qp.pause();
-        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]), function named() {
-            assert(false);
-        });
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]), function named(err, result) {
-            assert(!err, err);
-            assert(Date.now() > start + 500);
-            assert(result == JSON.stringify(data));
-            if(++cb >= 1) done();
-        });
+        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]));
+        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]));
+        q.once('complete', verify);
         qp.unpause();
-    },
-    function attachToJob(done) {
-        var handlerruns = 0;
-        var params =  {
-            redis: harness.getClient(),
-            subscriber: harness.getClient(),
-            log: console.log.bind(console),
-            name: "delaytest",
-            conurrency: 1,
-            handler: function(data, callback) {
-                handlerruns++;
-                callback(null, JSON.stringify(data));
-            }
-        };
-        var q = new Qred.Manager(params);
-        var qp = new Qred.Processor(params);
-        var data = {info:"attach"};
-        var callbacks = 0;
-        qp.pause();
-        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
-            assert(!err, err);
-            assert(handlerruns === 1);
-            assert(result == JSON.stringify(data));
-            callbacks++;
-            if(callbacks >= 2) done();
-        });
-        q.submitJob("ajobid", data, { }, countresult(["1", 0, 1, 0, 0]), function(err, result) {
-            assert(!err, err);
-            assert(handlerruns === 1);
-            assert(result == JSON.stringify(data));
-            callbacks++;
-            if(callbacks >= 2) done();
-        });
-        qp.unpause();
-    },
-    function snoopJob(done) {
-        var handlerruns = 0;
-        var params =  {
-            redis: harness.getClient(),
-            subscriber: harness.getClient(),
-            log: console.log.bind(console),
-            name: "snooptest",
-            conurrency: 1,
-            handler: function(data, callback) {
-                handlerruns++;
-                callback(null, JSON.stringify(data));
-            }
-        };
-        var q = new Qred.Manager(params);
-        new Qred.Processor(params);
-        var data = {info:"attach"};
-        var callbacks = 0;
-        q.snoopJobbyJob("ajobid", function(err, result) {
-            assert(!err, err);
-            assert(handlerruns === 1);
-            assert(result == JSON.stringify(data));
-            callbacks++;
-            if(callbacks >= 2) done();
-        });
-        q.submitJob("ajobid", data, { }, checkerr, function(err, result) {
-            assert(!err, err);
-            assert(handlerruns === 1);
-            assert(result == JSON.stringify(data));
-            callbacks++;
-            if(callbacks >= 2) done();
-        });
     },
     function nxdq(done) {
         var params =  {
@@ -462,23 +382,22 @@ var tests = [
         var q = new Qred.Manager(params);
         var qp = new Qred.Processor(params);
         var data = {info:"nx"};
-        var callbacks = 0;
+        var data2 = {info:"nx2"};
         qp.pause();
-        q.submitJob("anxjobid", data, { note: "a" }, countresult(["1",0,1,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data));
-            if(++callbacks >= 2) done();
-        });
-        q.submitJob("anxjobid", data, { note: "b", nx: "dq" }, function(err, result) {
+        var verify = function(message) {
+            assert(!message.error, message.error);
+            assert(message.result == JSON.stringify(data));
+            q.removeAllListeners('complete');
+            done();
+        };
+        q.submitJob("anxjobid", data, { note: "a" }, countresult(["1",0,1,0,0]));
+        q.submitJob("anxjobid", data2, { note: "b", nx: "dq" }, function(err, result) {
             assert(!err);
             assert(result);
             assert(result[0] === "0");
             assert(result[1] === "queued");
-            if(++callbacks >= 2) done();
-        }, function(err) { 
-            assert(!err, err);
-            assert(false, "shouldn't have run");
         });
+        q.on('complete', verify);
         qp.unpause();
     },
     function nxac(done) {
@@ -492,33 +411,26 @@ var tests = [
                 callback(null, JSON.stringify(data));
             }
         };
-        var finish = function() {
+        var verify = function(message) {
+            assert(!message.error, message.error);
+            assert(message.result === JSON.stringify(data2));
             q.submitJob("anx2jobid", data, { note: "b", nx: "ac" }, function(err, result) {
                 assert(!err);
                 assert(result);
                 assert(result[0] === "0", result);
                 assert(result[1] === "complete");
+                q.removeAllListeners('complete');
                 done();
-            }, function(err) {
-                assert(!err, err);
-                assert(false, "shouldn't have run");
             });
         };
         var q = new Qred.Manager(params);
         var qp = new Qred.Processor(params);
-        var data = {info:"nx"};
-        var callbacks = 0;
+        var data = {info:"ac"};
+        var data2 = {info:"ac2"};
         qp.pause();
-        q.submitJob("anx2jobid", data, { note: "a" }, countresult(["1",0,1,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data));
-            if(++callbacks >= 2) finish();
-        });
-        q.submitJob("anx2jobid", data, { note: "a", nx: "ac" }, countresult(["1",0,1,0,0]), function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data));
-            if(++callbacks >= 2) finish();
-        });
+        q.submitJob("anx2jobid", data, { note: "a" }, countresult(["1",0,1,0,0]));
+        q.submitJob("anx2jobid", data2, { note: "a", nx: "ac" }, countresult(["1",0,1,0,0]));
+        q.on('complete', verify);
         qp.unpause();
     },
     function remove(done) {
@@ -545,9 +457,6 @@ var tests = [
             assert(result[3] === 0);
             assert(result[4] === 0);
             if(++callbacks >= 2) done();
-        }, function(err) {
-            assert(!err);
-            assert(false, "Shouldn't get here");
         });
         q.removeJob("aremovejob", function(err, result) {
             assert(!err, err);
@@ -566,44 +475,42 @@ var tests = [
             redis: harness.getClient(),
             subscriber: harness.getClient(),
             log: console.log.bind(console),
-            name: "removetest",
+            name: "autoremovetest",
             conurrency: 1,
             handler: function(data, callback) {
                 callback(null, JSON.stringify(data));
             }
         };
-        var verify = function verify() {
-            q.findJob("akeptjobid", function(err, job) {
-                assert(!err, err);
-                assert(job);
-                assert(job.id === "akeptjobid");
-                q.findJob("aremovedjobid", function(err, job) {
-                    assert(!err, err);
-                    assert(!job, JSON.stringify(job));
-                    done();
-                });
-            });
+        var callbacks = 0;
+        var verify = function verify(message) {
+            assert(!message.error, message.error);
+            assert(message.jobid === "akeptjobid" || message.jobid === "aremovedjobid");
+            callbacks++;
+            assert(callbacks <= 2);
+            if(callbacks == 2) {
+                setTimeout(function() {
+                    q.findJob("akeptjobid", function(err, job) {
+                        assert(!err, err);
+                        assert(job);
+                        assert(job.id === "akeptjobid");
+                        q.findJob("aremovedjobid", function(err, job) {
+                            assert(!err, err);
+                            assert(!job, JSON.stringify(job));
+                            q.removeAllListeners('complete');
+                            done();
+                        });
+                    });
+                }, 10);
+            }
         };
         var q = new Qred.Manager(params);
         var qp = new Qred.Processor(params);
         var data = {info:"autorem"};
         var data2 = {info:"autorem2"};
-        var callbacks = 0;
         qp.pause();
-        q.submitJob("akeptjobid", data, { note: "a", autoremove: -1 }, function(err) {
-            assert(!err, err);
-        }, function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data));
-            if(++callbacks >= 2) setTimeout(verify, 10);
-        });
-        q.submitJob("aremovedjobid", data2, { note: "a", autoremove: 10 }, function(err) {
-            assert(!err, err);
-        }, function(err, result) {
-            assert(!err, err);
-            assert(result == JSON.stringify(data2));
-            if(++callbacks >= 2) setTimeout(verify, 10);
-        });
+        q.submitJob("akeptjobid", data, { note: "a", autoremove: -1 }, checkerr);
+        q.submitJob("aremovedjobid", data2, { note: "a", autoremove: 10 }, checkerr);
+        q.on('complete', verify);
         qp.unpause();
     }
 ];
