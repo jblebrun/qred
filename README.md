@@ -3,7 +3,7 @@ A redis-backed job queue system that doesn't suck
 To run tests: 
 ```
     npm install redis
-    node test/simple.js
+    npm test
 ```
 
 
@@ -16,6 +16,8 @@ There are two interfaces into the queue: Processor, and Manager. A Processor rec
 
 # Queue Manager
 
+TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
+
 ```
 new qred.Manager(opts)
 ```
@@ -26,27 +28,37 @@ Required Options:
 * subscriber - A redis client that provides "subscribe" and "on"
 
 Optional Options:
-* log - a function that will be used to log debug messages
+* log - a function that will be used to log debug messages generated in the qred code
+* prefix - the prefix for the keys in redis. Defaults to "qred"
 
 ```
 qred.submitJob(jobid, data, opts, submitted, completed)
 ```
+Submit a new job to the queue, identified by the string `jobid`. Only one job for a particular job ID can exist in the queue. Submitting a new job with the same ID will result in either replacing the job or discarding it, depending on the value of the `nx` option. If the job was added (or replaced), the function returns an array [1,delayed,queued,active,complete], where the named values are the number of jobs in that state. If the new job was discarded, [0,status] is returned, where status is the status of the existing job.
+
 * jobid - a string that uniquely identifies a job. If a job with the specified id exists, it will be *replaced*.
 * data - a generic blob that represents the data that the job handler will receive when the job is ready to be run.
-* opts - job specific settings. Currently 'priority', a relative value that determines the order in which jobs are run relative to one another, and 'delay', which specifies a delay in ms that the job should be queued before being run. 
-* submitted - called back when the job has been successfully submitted to the redis queue, or with an error if one occurred
-* completed - called back when the job has been removed from the queue and finished running. 
+* opts - job specific settings. Possible options:
+  * 'priority', a relative value that determines the order in which jobs are run relative to one another
+  * 'delay', specifies a delay in ms that the job should be queued before being run. 
+  * 'nx', a value indicating when to replace an existing job with the same ID. This value is a string of characters representing the first character of possible job statuses. So for example, if you pass in nx='dq', any job with the provided ID that is in the "delayed" or "queued" state will be replaced with the provided job. If the job with the given ID is in the active or complete state, the provided job will simply be ignored.
+  * 'autoremove', The time after which to autoclean job data from the queue data structures
+* callback - called back when the job has been successfully submitted to the redis queue, or with an error if one occurred
 
 ```
 qred.findJob(jobid, callback) 
 ```
-Find a job in the queue with the specified ID. 
+Find a job in the queue with the specified ID. Returns an object with the job options and data that were passed in. The `id` field is populated with the job id, for convenience.
 
 ```
 qred.removeJob(jobid, callback) 
 ```
 Remove a job from the queue. Active jobs will not be cancelled, but local callbacks for the job ID will not be fired. Remote callbacks currently *will* still execute, although this may change in the future
 
+```
+qred.reconcile(callback)
+```
+A helper function to clean out stale queue data. If a process using qred is quit suddenly, or the redis database is modified manually, the structures that maintain qred data could be corrupted. This function goes through and removes partial data elements, restoring the queue to a clean state.
 
 ## Internal Methods
 
@@ -60,8 +72,22 @@ _handleCompletion(jobid, err, result)
 ```
 Handle a message that a job processor on this queue has finished processing a job. All local callbacks for the job id will be executed with the specified err, result values, and then removed from the local callback cache.
 
+## Events
+```
+complete
+```
+This is fired every time a job is completed. Any registered event handlers receive the message that redis published on completion. The event is fired for all managers any time any processor in the same queue space finishes a job. 
+
+```
+complete:<jobid>
+```
+This is fire when a job named jobid is completed. This makes it easy to register an event handler for a particular named job without having to register a handler that hears every job. The event is fired for all managers any time a processor in the same queue space completes a job with the given name.
 
 # Queue Processor
+
+TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
+
+TODO - Add process-specific events that fire on a processor object when it finishes a job.
 
 ```
 new qred.Processor(opts)
@@ -83,7 +109,6 @@ qred.pause()
 ```
 Stops the handler from searching for and accepting jobs
 
-
 ```
 qred.unpause()
 ``` 
@@ -97,6 +122,22 @@ _process()
 Pull the next job from the queue and run it if one exists. If no job exists, but delayed jobs exist, the time until the next job can be run will be returned. The processor will then sleep for that amount of time.
 
 ```
+_clean()
+```
+Go through completed jobs and check if any of them have expired (based on their autoremove values), and if so, remove the data from the queue data structures.
+
+```
 _handleMessage(channel, message)
 ```
 Handle a message from the redis subscription client. The two redis message types are "submitted" and "completed". Receiving either kind triggers a _process() run.
+
+```
+_process()
+```
+Pluck the next jobid to be run. 
+
+```
+_handleJob(jobid)
+```
+Run the job, and then update its status according and publish the message.
+
