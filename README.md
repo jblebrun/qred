@@ -1,4 +1,4 @@
-A redis-backed job queue system that doesn't suck
+A redis-backed job queue system 
 
 To run tests: 
 ```
