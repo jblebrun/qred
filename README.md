@@ -85,6 +85,8 @@ This is fire when a job named jobid is completed. This makes it easy to register
 
 # Queue Processor
 
+TODO - add support for detecting incomplete active jobs, where the processor died while performing the job, so that the job can be requeued, or clean up can occur.
+
 TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
 
 TODO - Add process-specific events that fire on a processor object when it finishes a job.
