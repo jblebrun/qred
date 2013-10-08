@@ -28,7 +28,7 @@ var tests = [
                 handler: function(data, callback) {
                     q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
                     q.findJob('ajobid', function(err, job) {
-                        assert(job.status === 'active');
+                        assert(job.status === 'active', job.status);
                         callback(null, JSON.stringify(data));
                     });
                 }
