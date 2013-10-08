@@ -51,6 +51,38 @@ var tests = [
         },
         timeout: 5000
     }, {
+        test: function singleJobWeirdAutoremove(done) {
+            var params = {
+                redis: harness.getClient(),
+                subscriber: harness.getClient(),
+                log: console.log.bind(console),
+                name: "weirdautoremove",
+                handler: function(data, callback) {
+                    q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
+                    q.findJob('ajobid', function(err, job) {
+                        assert(job.status === 'active');
+                        callback(null, JSON.stringify(data));
+                    });
+                }
+            };
+            var q = new Qred.Manager(params);
+            new Qred.Processor(params);
+            var data = { data1: "a", data2: "b" };
+            q.submitJob("ajobid", data , { autoremove: true }, checkerr);
+            var verify = function(message) {
+                assert(message.jobid === "ajobid");
+                assert(message);
+                assert(!message.error, message.error);
+                assert(message.result == JSON.stringify(data));
+                q.findJob('ajobid', function(err, job) {
+                    assert(job.status === 'complete', job.status);
+                    done();
+                });
+            };
+            q.once('complete', verify);
+        },
+        timeout: 5000
+    }, {
         test: function specificEmits(done) {
             var params = {
                 redis: harness.getClient(),

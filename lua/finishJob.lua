@@ -18,9 +18,9 @@ redis.call('hmset', kJobKey, 'status', status, 'finished_at', now_ms)
 
 --Set up an expiry time which will get checked by a reaper process
 local expire = redis.call('hget', kJobKey, 'autoremove')
-redis.log(redis.LOG_DEBUG, 'expire: '..expire)
-if expire ~= nil and tonumber(expire) >= 0 then
-    redis.log(redis.LOG_DEBUG, 'expiring: '..expire..' '..kLiveSet);
+redis.log(redis.LOG_DEBUG, 'expire: '..tostring(expire))
+if tonumber(expire) ~= nil and tonumber(expire) >= 0 then
+    redis.log(redis.LOG_DEBUG, 'expiring: '..tostring(expire)..' '..kLiveSet);
     redis.call('zadd', kLiveSet, now_ms+expire, jobid)
     redis.call('hset', kJobKey, 'expires', now_ms+expire)
 end
