@@ -51,9 +51,13 @@ qred.findJob(jobid, callback)
 Find a job in the queue with the specified ID. Returns an object with the job options and data that were passed in. The `id` field is populated with the job id, for convenience.
 
 ```
-qred.removeJob(jobid, callback) 
+qred.removeJob(jobid, opts, callback) 
 ```
 Remove a job from the queue. Active jobs will not be cancelled, but local callbacks for the job ID will not be fired. Remote callbacks currently *will* still execute, although this may change in the future
+
+* jobid - a string that uniquely identifies a job. If a job with the specified id exists, it will be *replaced*.
+* opts - job specific settings. Possible options:
+  * 'nx', a value indicating when to remove the job. This value is a string of characters representing the first character of possible job statuses. So for example, if you pass in nx='dq', any job with the provided ID that is in the "delayed" or "queued" state will not be removed. 
 
 ```
 qred.reconcile(callback)
@@ -74,12 +78,12 @@ Handle a message that a job processor on this queue has finished processing a jo
 
 ## Events
 ```
-complete
+complete (jobid, err, result)
 ```
 This is fired every time a job is completed. Any registered event handlers receive the message that redis published on completion. The event is fired for all managers any time any processor in the same queue space finishes a job. 
 
 ```
-complete:<jobid>
+complete:<jobid> (jobid, err, result)
 ```
 This is fire when a job named jobid is completed. This makes it easy to register an event handler for a particular named job without having to register a handler that hears every job. The event is fired for all managers any time a processor in the same queue space completes a job with the given name.
 
@@ -89,7 +93,6 @@ TODO - add support for detecting incomplete active jobs, where the processor die
 
 TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
 
-TODO - Add process-specific events that fire on a processor object when it finishes a job.
 
 ```
 new qred.Processor(opts)
@@ -116,6 +119,16 @@ qred.unpause()
 ``` 
 Start listening for and processing jobs again 
 
+## Events
+```
+complete
+```
+This is fired every time a job is completed by this processor.
+
+```
+complete:<jobid>
+```
+This is fired when a job named jobid is completed by this processor. This makes it easy to register an event handler for a particular named job without having to register a handler that hears every job. 
 
 ## Internal Methods
 ```
