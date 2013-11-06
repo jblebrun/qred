@@ -34,7 +34,7 @@ exports.go = function(tests, beforeeach, complete) {
         var tdomain = Domain.create();
         var test = tests.shift();
         if(!test) {
-            console.log("Finished tests");
+            console.log("Finished tests for "+process.argv[1]);
             complete(null);
         }
         var name = test.name || test.test.name;

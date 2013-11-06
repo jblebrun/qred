@@ -35,16 +35,14 @@ var tests = [
                 done();
             }
         };
-        q1.on('complete', function(data) {
-            console.log("Called q1 complete for "+JSON.stringify(data));
+        q1.on('complete', function() {
             assert(!calledq1);
             calledq1 = true;
             setTimeout(checkdone, 10);
         });
         var q2 = new Qred.Manager(params2);
         var calledq2;
-        q2.on('complete', function(data) {
-            console.log("Called q2 complete for "+JSON.stringify(data));
+        q2.on('complete', function() {
             assert(!calledq2);
             calledq2 = true;
             setTimeout(checkdone, 10);

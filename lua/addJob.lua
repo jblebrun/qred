@@ -13,7 +13,7 @@ local status = redis.call('hget', kJobKey, 'status')
 if nx and status then
     local init = string.sub(status, 1, 1)
     if string.find(nx, init) then
-        return {'0',status, nx}
+        return {0,status, nx}
     end
 end
 
@@ -38,4 +38,4 @@ local delayed = redis.call('zcard', kDelayQueue)
 local queued = redis.call('zcard', kQueue)
 local active = redis.call('scard', kActiveSet)
 local complete = redis.call('scard', kCompleteSet)
-return {"1",delayed,queued,active,complete}
+return {1,delayed,queued,active,complete}
