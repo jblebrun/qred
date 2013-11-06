@@ -88,7 +88,7 @@ var tests = [
                 redis: harness.getClient(),
                 subscriber: harness.getClient(),
                 log: console.log.bind(console),
-                name: "simpletest",
+                name: "specifictest",
                 handler: function(data, callback) {
                     q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
                     callback(null, JSON.stringify(data));
@@ -131,7 +131,7 @@ var tests = [
                 redis: harness.getClient(),
                 subscriber: harness.getClient(),
                 log: console.log.bind(console),
-                name: "simpletest",
+                name: "singleexpiretest",
                 handler: function(data, callback) {
                     q.markProgress('ajobid', 'Set something for next test to clear', checkerr);
                     q.findJob('ajobid', function(err, job) {
@@ -168,7 +168,7 @@ var tests = [
                 redis: harness.getClient(),
                 subscriber: harness.getClient(),
                 log: console.log.bind(console),
-                name: "simpletest",
+                name: "progresstest",
                 handler: function(data, callback) {
                     q.markProgress('ajobid', 'Looking up job', function(err) {
                         assert(!err);
@@ -242,6 +242,8 @@ var tests = [
             var finish = function() {
                 assert(called1);
                 assert(called2);
+                assert(qp1_cb === 1);
+                assert(qp2_cb === 1);
                 q.removeListener('complete', verify);
                 done();
             };
@@ -262,16 +264,26 @@ var tests = [
                 if(message.jobid === "ajobid") {
                     q.findJob('ajobid', function(err, job) {
                         assert(job.status === 'complete', job.status);
-                        if(++cbs >= 2) finish();
+                        if(++cbs >= 4) finish();
                     });
                 } else if(message.jobid === "a2ndjobid") {
                     q.findJob('a2ndjobid', function(err, job) {
                         assert(job.status === 'complete', job.status);
-                        if(++cbs >= 2) finish();
+                        if(++cbs >= 4) finish();
                     });
                 }
             };
+            var qp1_cb = 0;
+            var qp2_cb = 0;
             q.on('complete', verify);
+            qp1.on('complete', function() {
+                qp1_cb++;
+               if(++cbs >= 4) finish();
+            });
+            qp2.on('complete', function() {
+                qp2_cb++;
+               if(++cbs >= 4) finish();
+            });
             qp1.unpause();
             qp2.unpause();
         },
@@ -350,11 +362,11 @@ var tests = [
             }
         };
         var adata = {info:"A"};
-        q.submitJob("ajobid", adata, { priority: 1 }, countresult(["1",0,1,0,0]));
+        q.submitJob("ajobid", adata, { priority: 1 }, countresult([1,0,1,0,0]));
         var bdata = {info:"B"};
-        q.submitJob("bjobid", bdata , { priority: 1 }, countresult(["1",0,2,0,0]));
+        q.submitJob("bjobid", bdata , { priority: 1 }, countresult([1,0,2,0,0]));
         var cdata = {info:"C"};
-        q.submitJob("cjobid", cdata , { priority: -1 }, countresult(["1",0,3,0,0]));
+        q.submitJob("cjobid", cdata , { priority: -1 }, countresult([1,0,3,0,0]));
         q.on('complete', verify);
         qp.unpause();
     },
@@ -438,8 +450,8 @@ var tests = [
             assert(Date.now() > start + 500);
             done();
         };
-        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult(["1",1,0,0,0]));
-        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult(["1",1,0,0,0]));
+        q.submitJob("ajobid", data, { priority: 1, delay: 10000 }, countresult([1,1,0,0,0]));
+        q.submitJob("ajobid", data, { priority: 1, delay: 500 }, countresult([1,1,0,0,0]));
         q.once('complete', verify);
         qp.unpause();
     },
@@ -465,11 +477,11 @@ var tests = [
             q.removeAllListeners('complete');
             done();
         };
-        q.submitJob("anxjobid", data, { note: "a" }, countresult(["1",0,1,0,0]));
+        q.submitJob("anxjobid", data, { note: "a" }, countresult([1,0,1,0,0]));
         q.submitJob("anxjobid", data2, { note: "b", nx: "dq" }, function(err, result) {
             assert(!err);
             assert(result);
-            assert(result[0] === "0");
+            assert(result[0] === 0);
             assert(result[1] === "queued");
         });
         q.on('complete', verify);
@@ -492,7 +504,7 @@ var tests = [
             q.submitJob("anx2jobid", data, { note: "b", nx: "ac" }, function(err, result) {
                 assert(!err);
                 assert(result);
-                assert(result[0] === "0", result);
+                assert(result[0] === 0, result);
                 assert(result[1] === "complete");
                 q.removeAllListeners('complete');
                 done();
@@ -503,8 +515,8 @@ var tests = [
         var data = {info:"ac"};
         var data2 = {info:"ac2"};
         qp.pause();
-        q.submitJob("anx2jobid", data, { note: "a" }, countresult(["1",0,1,0,0]));
-        q.submitJob("anx2jobid", data2, { note: "a", nx: "ac" }, countresult(["1",0,1,0,0]));
+        q.submitJob("anx2jobid", data, { note: "a" }, countresult([1,0,1,0,0]));
+        q.submitJob("anx2jobid", data2, { note: "a", nx: "ac" }, countresult([1,0,1,0,0]));
         q.on('complete', verify);
         qp.unpause();
     },
@@ -523,17 +535,21 @@ var tests = [
         new Qred.Processor(params);
         var data = {info:"nx"};
         var callbacks = 0;
+        var finish = function() {
+            assert(removedcb === 1);
+            done();
+        };
         q.submitJob("aremovejob", data, { note: "a" }, function(err, result) {
             assert(!err, err);
             assert(result);
-            assert(result[0] === "1");
+            assert(result[0] === 1);
             assert(result[1] === 0);
             assert(result[2] === 1);
             assert(result[3] === 0);
             assert(result[4] === 0);
-            if(++callbacks >= 2) done();
+            if(++callbacks >= 3) finish();
         });
-        q.removeJob("aremovejob", function(err, result) {
+        q.removeJob("aremovejob", {}, function(err, result) {
             assert(!err, err);
             assert(result instanceof Array);
             assert(result.length === 5);
@@ -542,7 +558,59 @@ var tests = [
             assert(result[2] === 0);
             assert(result[3] === 0);
             assert(result[4] === 0);
-            if(++callbacks >= 2) done();
+            if(++callbacks >= 3) finish();
+        });
+        var removedcb = 0;
+        q.on('removed', function() {
+            removedcb++;
+            if(++callbacks >= 3) finish();
+        });
+    },
+    function remove_ex(done) {
+        var params =  {
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
+            log: console.log.bind(console),
+            name: "remove_extest",
+            conurrency: 1,
+            handler: function(data, callback) {
+                callback(null, JSON.stringify(data));
+            }
+        };
+        var q = new Qred.Manager(params);
+        new Qred.Processor(params);
+        var data = {info:"remove_ex"};
+        var callbacks = 0;
+        var finish = function() {
+            done();
+        };
+        q.submitJob("aremovejob", data, { note: "a" }, function(err, result) {
+            assert(!err, err);
+            assert(result);
+            assert(result[0] === 1);
+            assert(result[1] === 0);
+            assert(result[2] === 1);
+            assert(result[3] === 0);
+            assert(result[4] === 0);
+            if(++callbacks >= 2) finish();
+        });
+        q.on('complete:aremovejob', function() {
+            q.removeJob("aremovejob", { nx: 'ace' }, function(err, result) {
+                assert(!err, err);
+                assert(result instanceof Array);
+                assert(result.length === 3);
+                assert(result[0] === 0);
+                assert(result[1] === 'complete');
+                assert(result[2] === 'ace');
+                q.findJob("aremovejob", function(err, result) {
+                    assert(!err);
+                    assert(result);
+                    if(++callbacks >= 2) finish();
+                });
+            });
+        });
+        q.on('removed', function() {
+            assert(false);
         });
     },
     function autoremove(done) {
