@@ -12,7 +12,7 @@ var countresult = function(nums) {
         assert(result);
         assert(result.length === nums.length);
         for(var i = 0; i < result.length; i++) {
-            assert(result[i] === nums[i]);
+            assert(result[i] === nums[i], result+" doesn't match "+nums);
         }
     };
 };

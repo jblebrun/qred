@@ -49,6 +49,42 @@ var tests = [
         });
         q2.submitJob('ajobq2', {}, {}, checkerr);
         new Qred.Processor(params2);
+    },
+    //Make sure only one job of a particular ID is active
+    function testSerialize(done) {
+        var active = {};
+        var resubmitted = false;
+        var handler = function(data, callback) {
+                console.log("START HANDLER");
+                assert(!active[data.id]);
+                if(!resubmitted) {
+                    resubmitted = true;
+                    q.submitJob('joba', {}, {}, checkerr);
+                }
+                active[data.id] = true;
+                setTimeout(function() {
+                    active[data.id] = false;
+                    callback(null, JSON.stringify(data));
+                }, 500);
+        };
+        var params = {
+            redis: harness.getClient(),
+            subscriber: harness.getClient(),
+            log: console.log.bind(console),
+            name: "qserialize",
+            handler: handler
+        };
+
+        /*var qp1 = */new Qred.Processor(params);
+        /*var qp2 = */new Qred.Processor(params);
+        var q = new Qred.Manager(params);
+        q.submitJob('joba', {}, {}, checkerr);
+        var fin = 0;
+        q.on('complete:joba', function() {
+            console.log("finished");
+            fin++;
+            if(fin === 2) done();
+        });
     }
 ];
 

@@ -17,22 +17,29 @@ if nx and status then
     end
 end
 
+local new_status = 'queued'
+
 local created_at = now_ms
 
 redis.call('hmset', kJobKey, 'data', data, 'priority', priority, 'run_at', run_at, 'delay', delay, 'autoremove', autoremove, 'c', created_at, 'u', now_ms)
 if delay > 0 then
-    redis.call('hset', kJobKey, 'status', 'delayed')
     redis.call('hset', kDelayPriorities, jobid, priority)
     redis.call('zadd', kDelayQueue, run_at, jobid)
     redis.call('zrem', kQueue, jobid)
 else
-    redis.call('hset', kJobKey, 'status', 'queued')
     redis.call('hdel', kDelayPriorities, jobid)
     redis.call('zadd', kQueue, priority, jobid)
     redis.call('zrem', kDelayQueue, jobid)
 end
-redis.call('srem', kActiveSet, jobid)
-redis.call('srem', kCompleteSet, jobid)
+
+if status == 'a' then
+    new_status = 'requeued'
+else 
+    redis.call('srem', kActiveSet, jobid)
+    redis.call('srem', kCompleteSet, jobid)
+end
+
+redis.call('hset', kJobKey, 'status', new_status)
 redis.call('zadd', kLiveSet, '+inf', jobid)
 local delayed = redis.call('zcard', kDelayQueue)
 local queued = redis.call('zcard', kQueue)
