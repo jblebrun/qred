@@ -11,7 +11,7 @@
     remove that key from the queue list
     return [jobid, next_delay_check]
 ]]
-local kQueue, kDelayQueue, kActiveQueue, kDelayPriorities = unpack(KEYS)
+local kQueue, kDelayQueue, kActiveSet, kDelayPriorities = unpack(KEYS)
 local now_ms = ARGV[1]
 
 -- PART A: Delayed job promotion 
@@ -32,7 +32,7 @@ redis.pcall('zremrangebyscore', kDelayQueue, 0, now_ms)
 local jobid= redis.call('zrange', kQueue, 0, 0)[1]
 redis.call('zremrangebyrank', kQueue, 0, 0)
 if jobid then
-    redis.call('sadd', kActiveQueue, jobid);
+    redis.call('sadd', kActiveSet, jobid);
 -- Return the next queued job
     return {1, jobid}
 else 

@@ -1,11 +1,17 @@
-local kActiveSet, kCompleteSet, kLiveSet, kJobKey = unpack(KEYS)
+local kActiveSet, kCompleteSet, kLiveSet, kDelayQueue, kJobKey = unpack(KEYS)
 local jobid, errored, now_ms = unpack(ARGV)
 
-redis.log(redis.LOG_DEBUG , 'finishJob'..jobid..' error: '..errored..' now: '..now_ms)
-redis.log(redis.LOG_DEBUG , 'finishJob'..kActiveSet..' '..kCompleteSet..' '..kLiveSet..' '..kJobKey)
 redis.call('srem', kActiveSet, jobid)
-redis.call('sadd', kCompleteSet, jobid)
-redis.log(redis.LOG_DEBUG , 'made set changes finishJob'..jobid..' error: '..errored)
+local status = redis.call('hget', kJobKey, 'status')
+if status == 'requeue' then
+    redis.call('sadd', kCompleteSet, jobid)
+else 
+    local delay = redis.call('hget', kJobKey, 'delay')
+    delay = tonumber(delay)
+    if not delay then delay = 0 end
+    local run_at = tonumber(now_ms) + delay;
+    redis.call('zadd', kDelayQueue, run_at, jobid)
+end
 
 local status
 if errored == 'true' or errored == '1' then
@@ -18,7 +24,6 @@ redis.call('hmset', kJobKey, 'status', status, 'finished_at', now_ms)
 
 --Set up an expiry time which will get checked by a reaper process
 local expire = redis.call('hget', kJobKey, 'autoremove')
-redis.log(redis.LOG_DEBUG, 'expire: '..tostring(expire))
 if tonumber(expire) ~= nil and tonumber(expire) >= 0 then
     redis.log(redis.LOG_DEBUG, 'expiring: '..tostring(expire)..' '..kLiveSet);
     redis.call('zadd', kLiveSet, now_ms+expire, jobid)

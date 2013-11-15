@@ -16,8 +16,6 @@ There are two interfaces into the queue: Processor, and Manager. A Processor rec
 
 # Queue Manager
 
-TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
-
 ```
 new qred.Manager(opts)
 ```
@@ -36,12 +34,15 @@ qred.submitJob(jobid, data, opts, submitted, completed)
 ```
 Submit a new job to the queue, identified by the string `jobid`. Only one job for a particular job ID can exist in the queue. Submitting a new job with the same ID will result in either replacing the job or discarding it, depending on the value of the `nx` option. If the job was added (or replaced), the function returns an array [1,delayed,queued,active,complete], where the named values are the number of jobs in that state. If the new job was discarded, [0,status] is returned, where status is the status of the existing job.
 
+If you submit a job for a jobid that is currently in the active state, and `nx` doesn't contain the `a` value, the job will be "requeued", and will run again at some point *after* the currently executing job has finished. Any data for the job will be replaced, so the currently running job should only rely on data that was explicitly passed to it.
+
 * jobid - a string that uniquely identifies a job. If a job with the specified id exists, it will be *replaced*.
 * data - a generic blob that represents the data that the job handler will receive when the job is ready to be run.
 * opts - job specific settings. Possible options:
   * 'priority', a relative value that determines the order in which jobs are run relative to one another
   * 'delay', specifies a delay in ms that the job should be queued before being run. 
-  * 'nx', a value indicating when to replace an existing job with the same ID. This value is a string of characters representing the first character of possible job statuses. So for example, if you pass in nx='dq', any job with the provided ID that is in the "delayed" or "queued" state will be replaced with the provided job. If the job with the given ID is in the active or complete state, the provided job will simply be ignored.
+  * 'nx', a value indicating when to replace an existing job with the same ID. This value is a string of characters representing the first character of possible job statuses. So for example, if you pass in nx='dq', any job with the provided ID that is in the "delayed" or "queued" state will be replaced with the provided job. If the job with the given ID is in the active or complete state, the provided job will simply be ignored. 
+
   * 'autoremove', The time after which to autoclean job data from the queue data structures
 * callback - called back when the job has been successfully submitted to the redis queue, or with an error if one occurred
 
@@ -90,8 +91,6 @@ This is fire when a job named jobid is completed. This makes it easy to register
 # Queue Processor
 
 TODO - add support for detecting incomplete active jobs, where the processor died while performing the job, so that the job can be requeued, or clean up can occur.
-
-TODO - add support for "requeue" if a job is submitted while a job is already in the active state. This would result in the submitting job getting put in a separate "rerun" queue, and when the processor finishes, it will look in this queue and pop a job back onto the queue if it's there.
 
 
 ```
